@@ -10,9 +10,15 @@ import { AlreadyLoggedInBanner } from "./already-logged-in-banner";
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "admin de una tienda",
   SUPER_ADMIN: "super admin de la plataforma",
+  RESELLER: "socio comercial",
 };
 
-export default async function RegistroPage() {
+export default async function RegistroPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  const { ref } = await searchParams;
   const session = await auth();
 
   // La sesión es JWT y no se refresca sola — si el token es viejo puede
@@ -21,12 +27,20 @@ export default async function RegistroPage() {
   // estado real en vez de confiar en session.user.tenantId directo.
   const user = session?.user ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
 
+  if (user?.role === "RESELLER") redirect("/socios");
+
+  // Volviendo de Google con un código de revendedor en la URL (ver
+  // registro-form.tsx) — se guarda acá, antes de decidir a dónde seguir.
+  if (ref && user && user.role === "CUSTOMER" && !user.tenantId && !user.pendingReferralCode) {
+    await prisma.user.update({ where: { id: user.id }, data: { pendingReferralCode: ref } });
+  }
+
   if (user && user.role === "CUSTOMER" && !user.tenantId) {
     // Se registró antes pero no terminó — lo mandamos directo a donde
     // quedó, en vez de hacerlo pasar por "Crear cuenta" de nuevo.
     if (user.onboardingPaidAt) redirect("/registro/datos");
     if (user.pendingPlanId) redirect("/registro/pago");
-    redirect("/registro/plan");
+    redirect("/registro/elegir");
   }
 
   const alreadyLoggedIn = user && (user.role !== "CUSTOMER" || user.tenantId)

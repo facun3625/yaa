@@ -2,14 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { savePendingReferralCode } from "./actions";
 
-const NEXT_STEP = "/registro/plan";
+// "/registro" a secas, no un paso fijo: esa página ya sabe reanudar a cada
+// quien donde quedó (elegir tienda/socio, plan, pago, datos, o directo a
+// /socios si ya es revendedor) — ver registro/page.tsx.
+const NEXT_STEP = "/registro";
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -73,6 +78,10 @@ export function RegistroForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  // Código de un revendedor que trajo a esta persona (del QR o del link que
+  // repartió: /registro?ref=CODIGO). Se guarda en la cuenta recién creada y
+  // se consume al crear la tienda — ver registro/actions.ts.
+  const referralCode = searchParams.get("ref");
 
   // Si Google (u otro provider) falla, Auth.js vuelve acá con ?error=... en
   // vez de seguir a /registro/plan — sin esto el fallo queda invisible.
@@ -108,6 +117,7 @@ export function RegistroForm() {
       toast.error("Email o contraseña incorrectos");
       return;
     }
+    if (referralCode) await savePendingReferralCode(referralCode);
     router.push(NEXT_STEP);
     router.refresh();
   }
@@ -140,6 +150,7 @@ export function RegistroForm() {
       toast.error("Cuenta creada, pero no se pudo iniciar sesión");
       return;
     }
+    if (referralCode) await savePendingReferralCode(referralCode);
     router.push(NEXT_STEP);
     router.refresh();
   }
@@ -149,7 +160,13 @@ export function RegistroForm() {
       <button
         type="button"
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10 hover:text-white"
-        onClick={() => signIn("google", { callbackUrl: NEXT_STEP })}
+        onClick={() =>
+          // El código no sobrevive el ida y vuelta con Google como parámetro
+          // de este componente (la página se abandona entera) — viaja en el
+          // callbackUrl, y /registro (server) lo guarda al volver, antes de
+          // decidir a dónde seguir.
+          signIn("google", { callbackUrl: referralCode ? `${NEXT_STEP}?ref=${referralCode}` : NEXT_STEP })
+        }
       >
         <GoogleIcon className="size-4" />
         Continuar con Google
@@ -188,6 +205,9 @@ export function RegistroForm() {
           </form>
         </TabsContent>
       </Tabs>
+      <p className="text-center text-xs leading-relaxed text-white/45">
+        Al crear tu cuenta aceptás los <Link href="/terminos" target="_blank" className="underline hover:text-white">Términos de uso</Link> y la <Link href="/privacidad" target="_blank" className="underline hover:text-white">Política de privacidad</Link>.
+      </p>
     </div>
   );
 }

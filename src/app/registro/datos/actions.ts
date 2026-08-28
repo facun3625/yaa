@@ -49,6 +49,17 @@ export async function createTenantFromOnboarding(formData: FormData) {
   const nextBillingDate = new Date();
   nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
 
+  // Si llegó con el código de un revendedor (por /registro?ref=CODIGO o
+  // tipeado a mano), acá es donde se fija de verdad la atribución — recién
+  // cuando la tienda se crea de verdad, no antes. Un código inválido o de
+  // un revendedor dado de baja simplemente no asocia nada, no bloquea el
+  // alta.
+  const reseller = user.pendingReferralCode
+    ? await prisma.user.findFirst({
+        where: { referralCode: user.pendingReferralCode, role: "RESELLER" },
+      })
+    : null;
+
   const tenant = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
@@ -56,6 +67,7 @@ export async function createTenantFromOnboarding(formData: FormData) {
         planId: user.pendingPlanId,
         billingStatus: "ACTIVE",
         nextBillingDate,
+        referredByResellerId: reseller?.id,
       },
     });
     await tx.settings.create({
@@ -86,6 +98,7 @@ export async function createTenantFromOnboarding(formData: FormData) {
         role: "ADMIN",
         pendingPlanId: null,
         onboardingPaidAt: null,
+        pendingReferralCode: null,
         ...(passwordHash ? { passwordHash } : {}),
       },
     });
