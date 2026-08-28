@@ -120,12 +120,18 @@ while IFS= read -r domain; do
     continue
   fi
 
-  # www solo si también apunta acá: pedirlo sin que resuelva hace fallar
-  # el certificado entero.
+  # www solo tiene sentido en el dominio propio de una tienda, no en su
+  # subdominio: a www.tienda.yaa.com.ar no entra nadie, y como el wildcard
+  # de DNS igual lo resuelve, terminaría metido en el certificado sin
+  # necesidad — y si algún día deja de resolver, hace fallar la renovación
+  # del certificado entero.
   cert_args=(-d "$domain")
   server_names="$domain"
-  www_resolved=$(dig +short "www.$domain" A @8.8.8.8 | tail -1)
-  if [[ "$www_resolved" == "$SERVER_IP" ]]; then
+  www_resolved=""
+  if [[ "$domain" != *".$ROOT_DOMAIN" ]]; then
+    www_resolved=$(dig +short "www.$domain" A @8.8.8.8 | tail -1)
+  fi
+  if [[ -n "$www_resolved" && "$www_resolved" == "$SERVER_IP" ]]; then
     cert_args+=(-d "www.$domain")
     server_names="$domain www.$domain"
     ok "incluye www"
