@@ -99,7 +99,13 @@ model Tenant {
   customDomainToken    String?
   customDomainVerified Boolean @default(false)
 
-  users               User[]
+  users               User[] @relation("TenantUsers")
+
+  // Revendedor que trajo esta tienda (si vino de un código) — solo para
+  // calcular a quién corresponde la comisión de sus cobros. No cambia nada
+  // de cara al dueño de la tienda.
+  referredByResellerId String?
+  referredByReseller    User?   @relation("TenantReferredBy", fields: [referredByResellerId], references: [id])
   categories          ProductCategory[]
   products            Product[]
   stockGroups         StockGroup[]
@@ -127,6 +133,11 @@ enum Role {
   CUSTOMER
   ADMIN
   SUPER_ADMIN
+  // Socio comercial: trae tiendas nuevas con su código y cobra comisión.
+  // Vive en el mismo espacio tenantId null que el super admin y quien se
+  // está registrando todavía sin tienda (ver getUserByEmail en
+  // lib/auth-adapter.ts, que ya filtra por role ahí).
+  RESELLER
 }
 
 model User {
@@ -150,7 +161,22 @@ model User {
   pendingPlan      Plan?     @relation("PendingSignupPlan", fields: [pendingPlanId], references: [id])
   onboardingPaidAt DateTime?
 
-  tenant           Tenant?            @relation(fields: [tenantId], references: [id])
+  // Código propio de un revendedor (role RESELLER) para repartir — se
+  // genera al elegir "ser socio" en /registro, único, se usa en la URL del
+  // QR (/registro?ref=CODIGO). null para todos los demás roles.
+  referralCode String? @unique
+
+  // Código de un revendedor que alguien trae consigo mientras todavía se
+  // está registrando (llegó por /registro?ref=CODIGO, o lo tipeó a mano) —
+  // se consume recién al crear la tienda, ahí pasa a Tenant.referredByResellerId.
+  pendingReferralCode String?
+
+  tenant Tenant? @relation("TenantUsers", fields: [tenantId], references: [id])
+
+  // Tiendas que este revendedor trajo (role RESELLER) — no confundir con
+  // `tenant` de arriba, que es la tienda PROPIA de un admin/cliente.
+  referredTenants Tenant[] @relation("TenantReferredBy")
+
   accounts         Account[]
   sessions         Session[]
   orders           Order[]

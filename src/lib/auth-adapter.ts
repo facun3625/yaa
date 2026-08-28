@@ -29,13 +29,17 @@ export function tenantAwareAdapter(tenantId: string | null): Adapter {
     },
     getUserByEmail: async (email) => {
       if (tenantId === null) {
-        // El espacio tenantId null mezcla dos cosas que NO deben pisarse:
-        // el/los super admin (role SUPER_ADMIN) y quienes se están
-        // registrando en /registro todavía sin tienda (role CUSTOMER). Sin
-        // este filtro, alguien logueándose con Google con el mismo email
-        // que el super admin terminaría logueado COMO el super admin en
-        // vez de arrancar su propio registro.
-        return prisma.user.findFirst({ where: { tenantId: null, email, role: "CUSTOMER" } });
+        // El espacio tenantId null mezcla varias cosas que NO deben
+        // pisarse: el/los super admin (role SUPER_ADMIN), quienes se están
+        // registrando en /registro todavía sin tienda (role CUSTOMER), y
+        // los revendedores (role RESELLER, que arrancan como CUSTOMER y se
+        // promueven al elegir "ser socio" — ver /registro/socio/actions.ts).
+        // Sin este filtro, alguien logueándose con Google con el mismo
+        // email que el super admin terminaría logueado COMO el super admin
+        // en vez de arrancar su propio registro.
+        return prisma.user.findFirst({
+          where: { tenantId: null, email, role: { in: ["CUSTOMER", "RESELLER"] } },
+        });
       }
       return prisma.user.findUnique({ where: { tenantId_email: { tenantId, email } } });
     },
