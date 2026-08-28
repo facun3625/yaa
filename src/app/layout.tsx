@@ -38,8 +38,25 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: "YAA · Vendé más. Complicate menos.",
       description:
-        "Creá tu tienda online, recibí pedidos y hacé crecer tu negocio sin comisiones por venta.",
+        "Pedidos online para gastronomía y negocios de cercanía, sin comisiones por venta.",
       icons: { icon: "/yaa-icon.svg" },
+      metadataBase: new URL("https://yaa.com.ar"),
+      alternates: { canonical: "/" },
+      openGraph: {
+        title: "YAA · Vendé más. Complicate menos.",
+        description: "Tu menú online y todos tus pedidos en un solo lugar, sin comisiones por venta.",
+        url: "/",
+        siteName: "YAA",
+        locale: "es_AR",
+        type: "website",
+        images: [{ url: "/yaa_mock.png", width: 1448, height: 1086, alt: "YAA, tu tienda online" }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "YAA · Vendé más. Complicate menos.",
+        description: "Tu menú online y todos tus pedidos en un solo lugar, sin comisiones por venta.",
+        images: ["/yaa_mock.png"],
+      },
     };
   }
 
@@ -54,7 +71,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

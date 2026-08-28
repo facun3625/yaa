@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { savePendingReferralCode } from "./actions";
+import { savePendingReferralCode, findAdminLoginLink } from "./actions";
 
 // "/registro" a secas, no un paso fijo: esa página ya sabe reanudar a cada
 // quien donde quedó (elegir tienda/socio, plan, pago, datos, o directo a
@@ -114,7 +114,14 @@ export function RegistroForm() {
     setLoading(false);
 
     if (result?.error) {
-      toast.error("Email o contraseña incorrectos");
+      const adminLink = await findAdminLoginLink(loginEmail);
+      if (adminLink) {
+        toast.error("Ese email es de una tienda — el login es en tu propio subdominio.", {
+          action: { label: "Ir a mi tienda", onClick: () => { window.location.href = adminLink; } },
+        });
+      } else {
+        toast.error("Email o contraseña incorrectos");
+      }
       return;
     }
     if (referralCode) await savePendingReferralCode(referralCode);

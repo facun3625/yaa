@@ -12,9 +12,12 @@ export function YaaPublicFooter() {
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[#9ca3af]">
           <Link href="/#funcionalidades" className="transition-colors hover:text-white">Funcionalidades</Link>
-          <Link href="/#clientes" className="transition-colors hover:text-white">Clientes</Link>
+          <Link href="/#clientes" className="transition-colors hover:text-white">Para quién es</Link>
           <Link href="/#precios" className="transition-colors hover:text-white">Precios</Link>
           <Link href="/revendedores" className="transition-colors hover:text-white">Socios comerciales</Link>
+          <Link href="/preguntas-frecuentes" className="transition-colors hover:text-white">Preguntas frecuentes</Link>
+          <Link href="/terminos" className="transition-colors hover:text-white">Términos</Link>
+          <Link href="/privacidad" className="transition-colors hover:text-white">Privacidad</Link>
           <Link href="/#contacto" className="transition-colors hover:text-white">Contacto</Link>
           <a href="mailto:hola@yaa.com.ar" className="transition-colors hover:text-white">hola@yaa.com.ar</a>
           </div>

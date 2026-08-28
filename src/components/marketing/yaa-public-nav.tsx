@@ -18,14 +18,21 @@ export function YaaPublicNav() {
 
         <nav className="hidden items-center gap-5 text-sm font-semibold text-white lg:flex">
           <Link href="/#funcionalidades" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Funcionalidades</Link>
-          <Link href="/#clientes" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Clientes</Link>
+          <Link href="/#clientes" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Para quién es</Link>
           <Link href="/#precios" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Precios</Link>
           <Link href="/#socios" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Socios</Link>
+          <Link href="/preguntas-frecuentes" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">FAQs</Link>
           <Link href="/#contacto" className="border-b-2 border-transparent py-2 transition-colors hover:border-[#ff5a36] hover:text-[#ff5a36]">Contacto</Link>
         </nav>
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
-          <Link href="/#funcionalidades" className="yaa-btn yaa-btn-secondary py-2! px-4! text-sm">Conocer YAA</Link>
+          {/* "/login" es el login de UNA tienda puntual — necesita un
+          subdominio para saber a cuál (ver src/app/login/page.tsx,
+          getCurrentTenant()). Desde la raíz no hay tienda que resolver, así
+          que sería 404. "/registro" sí funciona sin subdominio: tiene su
+          propia pestaña "Ya tengo cuenta" y ahí entran dueños de tienda que
+          typean mal, revendedores, y quien quedó a mitad del alta. */}
+          <Link href="/registro" className="yaa-btn yaa-btn-secondary py-2! px-4! text-sm">Iniciar sesión</Link>
           <Link href="/registro" className="yaa-btn yaa-btn-primary py-2! px-5! text-sm">Probar 10 días gratis</Link>
         </div>
 
@@ -38,9 +45,10 @@ export function YaaPublicNav() {
         <div className="border-t border-white/10 bg-[#030712]/98 backdrop-blur-lg lg:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3">
             <Link href="/#funcionalidades" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Funcionalidades</Link>
-            <Link href="/#clientes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Clientes</Link>
+            <Link href="/#clientes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Para quién es</Link>
             <Link href="/#precios" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Precios</Link>
             <Link href="/#socios" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Socios</Link>
+            <Link href="/preguntas-frecuentes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Preguntas frecuentes</Link>
             <Link href="/#contacto" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Contacto</Link>
             <div className="my-2 h-px bg-white/10" />
             <Link href="/registro" onClick={close} className="yaa-btn yaa-btn-primary w-full justify-center">Probar 10 días gratis</Link>
