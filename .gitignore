@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# uploads (fotos de productos, comprobantes) - solo local en dev
+/public/uploads/*
+!/public/uploads/.gitkeep

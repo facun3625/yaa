@@ -1,0 +1,805 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Plataforma / Tenants ----------
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrderingMode {
+  WEEKLY_HOURS
+  SCHEDULED_SALES
+}
+
+// Estado de facturación manejado a mano por el super admin — no hay pasarela
+// de pago integrada, esto es solo un registro de "quién pagó y cuándo vence".
+enum BillingStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+}
+
+// Los planes los define el propio super admin desde /platform/planes — acá
+// no hardcodeamos nombres ni precios reales, son datos de negocio.
+model Plan {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  priceMonthly      Decimal
+  // Límites opcionales — null significa "sin límite" en esa dimensión.
+  maxProducts       Int?
+  maxOrdersPerMonth Int?
+  // Habilita la sección de dominio propio en Configuración para las tiendas
+  // en este plan — se puede prender/apagar en cualquier momento sin tocar
+  // código, desde /platform/planes.
+  allowCustomDomain Boolean  @default(false)
+  description       String?
+  active            Boolean  @default(true)
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  tenants        Tenant[]
+  pendingSignups User[]   @relation("PendingSignupPlan")
+}
+
+// Cada fila es un cobro que el super admin registró a mano (no un webhook de
+// pasarela) — sirve como historial de "quién pagó qué mes".
+model BillingPayment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  amount      Decimal
+  periodStart DateTime
+  periodEnd   DateTime
+  paidAt      DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Tenant {
+  id                   String       @id @default(cuid())
+  subdomain            String       @unique
+  status               TenantStatus @default(ACTIVE)
+  orderingMode         OrderingMode @default(SCHEDULED_SALES)
+  ordersManuallyClosed Boolean      @default(false)
+  // Apagado general de la tienda desde el admin — independiente del modo y
+  // de los horarios/fechas configurados. Mientras esté en false, el
+  // storefront muestra "Tienda cerrada" y no se puede hacer ningún pedido.
+  storeOpen            Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+
+  planId          String?
+  plan            Plan?            @relation(fields: [planId], references: [id])
+  billingStatus   BillingStatus    @default(TRIAL)
+  trialEndsAt     DateTime?
+  nextBillingDate DateTime?
+  billingNotes    String?
+  billingPayments BillingPayment[]
+
+  // Dominio propio (ej: pedidos.mimarca.com) — solo disponible si el plan de
+  // la tienda tiene allowCustomDomain. El token se le pide al dueño del
+  // dominio como registro TXT para probar que es suyo antes de servir la
+  // tienda ahí; una vez verificado, customDomain empieza a resolver tenant
+  // igual que el subdominio.
+  customDomain         String? @unique
+  customDomainToken    String?
+  customDomainVerified Boolean @default(false)
+
+  users               User[]
+  categories          ProductCategory[]
+  products            Product[]
+  stockGroups         StockGroup[]
+  services            Service[]
+  serviceInquiries    ServiceInquiry[]
+  deliveryDates       DeliveryDate[]
+  storeClosures       StoreClosure[]
+  weeklyScheduleRules WeeklyScheduleRule[]
+  paymentMethods      PaymentMethodConfig[]
+  fulfillmentMethods  FulfillmentMethodConfig[]
+  pickupSlots         PickupSlot[]
+  orders              Order[]
+  pointsRules         PointsRule[]
+  coupons             Coupon[]
+  settings            Settings[]
+  aboutMedia          AboutMedia[]
+  stockMovements      StockMovement[]
+  emailLogs           EmailLog[]
+  whatsappLogs        WhatsappLog[]
+}
+
+// ---------- Auth ----------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  tenantId      String?
+  name          String?
+  email         String
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  address       String?
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Mientras un usuario se está registrando en yaa.com.ar y todavía no tiene
+  // tienda (tenantId null): plan elegido y marca de "ya pagó" el onboarding.
+  // Se limpian cuando /registro/datos crea el Tenant y lo pasa a ADMIN.
+  pendingPlanId    String?
+  pendingPlan      Plan?     @relation("PendingSignupPlan", fields: [pendingPlanId], references: [id])
+  onboardingPaidAt DateTime?
+
+  tenant           Tenant?            @relation(fields: [tenantId], references: [id])
+  accounts         Account[]
+  sessions         Session[]
+  orders           Order[]
+  pointsLedger     PointsLedger[]
+  couponRedemption CouponRedemption[]
+  whatsappLogs     WhatsappLog[]
+
+  @@unique([tenantId, email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  // Copiado del User al vincular la cuenta — permite que la misma cuenta de
+  // Google se vincule a un usuario distinto por cada tienda (tenant), en vez
+  // de compartir un solo User global entre tiendas distintas.
+  tenantId          String?
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Catálogo ----------
+
+model ProductCategory {
+  id       String    @id @default(cuid())
+  tenantId String
+  name     String
+  icon     String?
+  active   Boolean   @default(true)
+  products Product[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  tenantId     String
+  categoryId   String
+  name         String
+  description  String?
+  active       Boolean  @default(true)
+  featured     Boolean  @default(false)
+  // Pausa rápida sin fecha ni cantidad, solo tiene efecto en modo
+  // WEEKLY_HOURS (delivery del día) — en SCHEDULED_SALES manda el stock
+  // por fecha en su lugar.
+  soldOutToday Boolean  @default(false)
+  // Para productos "a pedido" (catering, encargos grandes, etc.) donde el
+  // precio varía por consulta — oculta el precio y el carrito, y en su
+  // lugar muestra un botón de WhatsApp. Las variantes siguen existiendo
+  // para no romper el modelo, pero su precio no se le muestra al cliente.
+  contactToBuy Boolean  @default(false)
+  tags         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  category ProductCategory  @relation(fields: [categoryId], references: [id])
+  variants ProductVariant[]
+  images   ProductImage[]
+
+  @@index([tenantId])
+}
+
+// Pozo de stock: puede tener un solo miembro (stock individual de esa
+// variante) o varios (compartido entre variantes de un mismo producto, o
+// incluso de productos distintos — ej: "Pizzas grandes" repartido entre
+// todos los gustos que vienen en tamaño grande).
+model StockGroup {
+  id                   String @id @default(cuid())
+  tenantId             String
+  name                 String
+  defaultStockQuantity Int?
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  variants       ProductVariant[]
+  stock          StockGroupStock[]
+  stockMovements StockMovement[]
+
+  @@unique([tenantId, name])
+}
+
+model ProductVariant {
+  id           String  @id @default(cuid())
+  productId    String
+  stockGroupId String
+  gusto        String?
+  tamano       String?
+  sku          String?
+  price        Decimal @db.Decimal(10, 2)
+  active       Boolean @default(true)
+  order        Int     @default(0)
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockGroup StockGroup  @relation(fields: [stockGroupId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([stockGroupId])
+}
+
+model ProductImage {
+  id        String @id @default(cuid())
+  productId String
+  url       String
+  order     Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Servicios cotizados por presupuesto ----------
+
+enum ServiceFieldType {
+  TEXT
+  TEXTAREA
+  EMAIL
+  PHONE
+  NUMBER
+  DATE
+  SELECT
+}
+
+model Service {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  title              String
+  description        String
+  descriptionColumns Boolean  @default(false)
+  formTitle          String
+  submitLabel        String   @default("Enviar consulta")
+  active             Boolean  @default(true)
+  order              Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  fields    ServiceField[]
+  images    ServiceImage[]
+  inquiries ServiceInquiry[]
+
+  @@index([tenantId])
+}
+
+model ServiceField {
+  id        String           @id @default(cuid())
+  serviceId String
+  label     String
+  type      ServiceFieldType @default(TEXT)
+  required  Boolean          @default(false)
+  options   String[]         @default([])
+  order     Int              @default(0)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, order])
+}
+
+model ServiceImage {
+  id        String @id @default(cuid())
+  serviceId String
+  url       String
+  order     Int    @default(0)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, order])
+}
+
+enum ServiceInquiryStatus {
+  NEW
+  IN_PROGRESS
+  QUOTED
+  RESPONDED
+  ACCEPTED
+  REJECTED
+  CLOSED
+}
+
+model ServiceInquiry {
+  id                String               @id @default(cuid())
+  tenantId          String
+  serviceId         String?
+  serviceTitle      String
+  answers           Json
+  status            ServiceInquiryStatus @default(NEW)
+  quotedAmount      Decimal?             @db.Decimal(12, 2)
+  internalNotes     String?
+  telegramSent      Boolean              @default(false)
+  emailSent         Boolean              @default(false)
+  notificationError String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  tenant  Tenant                @relation(fields: [tenantId], references: [id])
+  service Service?              @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  events  ServiceInquiryEvent[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([serviceId])
+}
+
+model ServiceInquiryEvent {
+  id           String               @id @default(cuid())
+  inquiryId    String
+  status       ServiceInquiryStatus
+  quotedAmount Decimal?             @db.Decimal(12, 2)
+  notes        String?
+  createdAt    DateTime             @default(now())
+
+  inquiry ServiceInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, createdAt])
+}
+
+// ---------- Fechas de entrega y stock ----------
+
+enum DeliveryDateStatus {
+  OPEN
+  CLOSED
+  EXPIRED
+}
+
+// Cómo se maneja el stock para una fecha puntual: BY_GROUP usa los pozos
+// de cada variante (StockGroupStock — individuales o compartidos, según
+// cómo esté armado el catálogo); UNLIMITED no trackea nada, todo
+// disponible siempre.
+enum DateStockMode {
+  BY_GROUP
+  UNLIMITED
+}
+
+enum StockMovementReason {
+  SALE // un pedido consumió stock
+  RESTOCK // un pedido se canceló/borró y liberó lo que había consumido
+  ADJUSTMENT // el admin cambió el tope disponible a mano
+}
+
+model DeliveryDate {
+  id          String             @id @default(cuid())
+  tenantId    String
+  date        DateTime
+  orderOpenAt DateTime?
+  cutoffAt    DateTime?
+  capacity    Int?
+  status      DeliveryDateStatus @default(OPEN)
+  stockMode   DateStockMode      @default(BY_GROUP)
+  notes       String?
+  createdAt   DateTime           @default(now())
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  stockGroupStock StockGroupStock[]
+  orders          Order[]
+  pickupSlots     PickupSlot[]
+  stockMovements  StockMovement[]
+  costs           DeliveryDateCost[]
+
+  @@index([tenantId])
+}
+
+// Costos sueltos cargados a mano para una fecha puntual (ej: ingredientes,
+// delivery, alquiler del local ese día) — opcional, se van agregando de a
+// uno. Sirve para sacar el resultado neto (ventas - costos) en Estadísticas.
+model DeliveryDateCost {
+  id             String   @id @default(cuid())
+  deliveryDateId String
+  label          String
+  amount         Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  deliveryDate DeliveryDate @relation(fields: [deliveryDateId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryDateId])
+}
+
+// Modo "horario semanal": un día de la semana habilitado, con 1 o 2 franjas
+// (WeeklyScheduleWindow) de pedido + entrega/retiro (ej: mediodía y noche).
+model WeeklyScheduleRule {
+  id       String  @id @default(cuid())
+  tenantId String
+  weekday  Int
+  enabled  Boolean @default(true)
+
+  tenant  Tenant                 @relation(fields: [tenantId], references: [id])
+  windows WeeklyScheduleWindow[]
+
+  @@unique([tenantId, weekday])
+}
+
+model WeeklyScheduleWindow {
+  id               String @id @default(cuid())
+  ruleId           String
+  order            Int    @default(0)
+  orderOpenTime    String
+  orderCloseTime   String
+  fulfillmentStart String
+  fulfillmentEnd   String
+
+  rule WeeklyScheduleRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+// ---------- Entrega (delivery / retiro) ----------
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+model FulfillmentMethodConfig {
+  id       String          @id @default(cuid())
+  tenantId String
+  type     FulfillmentType
+  enabled  Boolean         @default(false)
+  config   Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, type])
+}
+
+model PickupSlot {
+  id             String  @id @default(cuid())
+  tenantId       String
+  deliveryDateId String?
+  label          String
+  order          Int     @default(0)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  deliveryDate DeliveryDate? @relation(fields: [deliveryDateId], references: [id], onDelete: Cascade)
+  orders       Order[]
+
+  @@index([tenantId])
+  @@index([deliveryDateId])
+}
+
+model StockGroupStock {
+  id                String @id @default(cuid())
+  stockGroupId      String
+  deliveryDateId    String
+  quantityAvailable Int? // null = sin límite
+  quantitySold      Int    @default(0)
+
+  stockGroup   StockGroup   @relation(fields: [stockGroupId], references: [id], onDelete: Cascade)
+  deliveryDate DeliveryDate @relation(fields: [deliveryDateId], references: [id], onDelete: Cascade)
+
+  @@unique([stockGroupId, deliveryDateId])
+}
+
+// Historial de cada cambio al stock de una fecha: ventas (al confirmar un
+// pedido), reposiciones (al cancelar/borrar uno) y ajustes manuales del
+// admin. "delta" es el cambio en el remanente (negativo = bajó, positivo =
+// subió); quantityAvailable/quantitySold son la foto resultante.
+model StockMovement {
+  id                String              @id @default(cuid())
+  tenantId          String
+  deliveryDateId    String
+  stockGroupId      String?
+  reason            StockMovementReason
+  delta             Int?
+  quantityAvailable Int?
+  quantitySold      Int
+  note              String?
+  createdAt         DateTime            @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryDate DeliveryDate @relation(fields: [deliveryDateId], references: [id], onDelete: Cascade)
+  stockGroup   StockGroup?  @relation(fields: [stockGroupId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deliveryDateId])
+}
+
+model StoreClosure {
+  id        String   @id @default(cuid())
+  tenantId  String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---------- Medios de pago ----------
+
+enum PaymentMethodType {
+  CASH_ON_DELIVERY
+  TRANSFER
+  MERCADOPAGO
+}
+
+model PaymentMethodConfig {
+  id                String            @id @default(cuid())
+  tenantId          String
+  type              PaymentMethodType
+  enabled           Boolean           @default(false)
+  // Nombre a mostrar en vez del default (ej: "Efectivo" -> "Pago al retirar").
+  label             String?
+  // Solo aplica a CASH_ON_DELIVERY: si está seteado, ese medio de pago
+  // se oculta para quien no tenga al menos esta cantidad de pedidos
+  // previos (los invitados, sin cuenta, nunca lo cumplen).
+  minPreviousOrders Int?
+  config            Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, type])
+}
+
+// ---------- Pedidos ----------
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_REVIEW
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  // null = pedido de invitado (sin cuenta) — en ese caso guestName/guestEmail
+  // tienen los datos que cargó a mano en el checkout.
+  userId             String?
+  guestName          String?
+  guestEmail         String?
+  deliveryDateId     String
+  fulfillmentType    FulfillmentType
+  pickupSlotId       String?
+  deliveryAddress    String?
+  deliveryPhone      String
+  status             OrderStatus       @default(PENDING_PAYMENT)
+  paymentMethod      PaymentMethodType
+  subtotal           Decimal           @db.Decimal(10, 2)
+  deliveryFee        Decimal           @default(0) @db.Decimal(10, 2)
+  discountFromCoupon Decimal           @default(0) @db.Decimal(10, 2)
+  total              Decimal           @db.Decimal(10, 2)
+  pointsEarned       Int               @default(0)
+  couponId           String?
+  mpPreferenceId     String?
+  mpPaymentId        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  user         User?          @relation(fields: [userId], references: [id])
+  deliveryDate DeliveryDate   @relation(fields: [deliveryDateId], references: [id])
+  pickupSlot   PickupSlot?    @relation(fields: [pickupSlotId], references: [id], onDelete: SetNull)
+  coupon       Coupon?        @relation(fields: [couponId], references: [id])
+  items        OrderItem[]
+  paymentProof PaymentProof?
+  pointsLedger PointsLedger[]
+
+  @@index([tenantId])
+}
+
+model OrderItem {
+  id               String  @id @default(cuid())
+  orderId          String
+  productVariantId String
+  quantity         Int
+  unitPrice        Decimal @db.Decimal(10, 2)
+
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+enum PaymentProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PaymentProof {
+  id         String             @id @default(cuid())
+  orderId    String             @unique
+  url        String
+  uploadedAt DateTime           @default(now())
+  status     PaymentProofStatus @default(PENDING)
+  reviewedAt DateTime?
+  reviewedBy String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Puntos y cupones ----------
+
+model PointsRule {
+  id              String    @id @default(cuid())
+  tenantId        String
+  pointsPerAmount Decimal   @db.Decimal(10, 4)
+  effectiveFrom   DateTime  @default(now())
+  effectiveTo     DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model PointsLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String?
+  couponId  String?
+  delta     Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id])
+  order  Order?  @relation(fields: [orderId], references: [id])
+  coupon Coupon? @relation(fields: [couponId], references: [id])
+}
+
+enum CouponDiscountType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id            String             @id @default(cuid())
+  tenantId      String
+  code          String
+  pointsCost    Int                @default(0)
+  discountType  CouponDiscountType
+  discountValue Decimal            @db.Decimal(10, 2)
+  active        Boolean            @default(true)
+  usageLimit    Int?
+  expiresAt     DateTime?
+  createdAt     DateTime           @default(now())
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  orders       Order[]
+  pointsLedger PointsLedger[]
+  redemptions  CouponRedemption[]
+
+  @@unique([tenantId, code])
+}
+
+model CouponRedemption {
+  id         String   @id @default(cuid())
+  userId     String?
+  couponId   String
+  orderId    String?
+  redeemedAt DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id])
+  coupon Coupon @relation(fields: [couponId], references: [id])
+}
+
+// ---------- Config general ----------
+
+model Settings {
+  tenantId String
+  key      String
+  value    String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
+}
+
+// Historial de cada mail que la app intentó mandar (confirmación de
+// pedido, recuperación de contraseña, pruebas desde el admin) — para poder
+// ver desde el panel si efectivamente salieron, sin depender del proveedor
+// SMTP externo.
+model EmailLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  to        String
+  subject   String
+  type      String
+  success   Boolean
+  error     String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+}
+
+// Queda registrado cada vez que un admin le manda un WhatsApp a un cliente
+// desde una campaña — no hay forma de confirmar que WhatsApp lo entregó (el
+// envío pasa por WhatsApp Web, fuera de la app), esto solo marca que el
+// admin abrió el link con el mensaje.
+model WhatsappLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  phone     String
+  message   String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------- Sobre nosotros ----------
+
+enum AboutMediaType {
+  IMAGE
+  VIDEO
+}
+
+model AboutMedia {
+  id        String         @id @default(cuid())
+  tenantId  String
+  type      AboutMediaType
+  url       String
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
