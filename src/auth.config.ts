@@ -22,6 +22,7 @@ declare module "@auth/core/jwt" {
 // que corre en Edge y no puede cargar Prisma/bcrypt.
 export default {
   providers: [],
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
