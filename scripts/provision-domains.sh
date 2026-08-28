@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 #
-# Da de alta en Nginx + Let's Encrypt los dominios propios que las tiendas
-# ya verificaron por DNS desde su panel (Tenant.customDomainVerified).
+# Da de alta en Nginx + Let's Encrypt cada dominio por el que se llega a una
+# tienda: su subdominio (tienda.yaa.com.ar) y, si lo verificó por DNS desde
+# su panel, también su dominio propio (moulinscocina.com.ar).
 #
-# El wildcard *.yaa.com.ar cubre los subdominios de las tiendas, pero un
-# dominio de un cliente (moulinscocina.com.ar) no lo cubre nadie: hay que
-# emitirle su propio certificado y darle su propio server block. Eso es lo
-# que automatiza esto, para no repetirlo a mano por cada cliente.
+# Todos los certificados que emite usan desafío HTTP, así que se renuevan
+# solos. Eso es lo que lo distingue del certificado wildcard *.yaa.com.ar,
+# que se emitió con desafío DNS manual porque DonWeb no tiene plugin de
+# certbot, y que por lo tanto hay que renovar a mano cada 90 días.
 #
 # Es idempotente: los dominios ya configurados se saltean, así que se puede
 # correr cuantas veces se quiera (a mano o por cron).
 #
-#   ./scripts/provision-custom-domains.sh              # da de alta lo que falte
-#   ./scripts/provision-custom-domains.sh --dry-run    # solo muestra qué haría
+#   ./scripts/provision-domains.sh              # da de alta lo que falte
+#   ./scripts/provision-domains.sh --dry-run    # solo muestra qué haría
 #
 set -euo pipefail
 
 # --- Configuración -----------------------------------------------------------
 APP_PORT="${APP_PORT:-3014}"
+ROOT_DOMAIN="${ROOT_DOMAIN:-yaa.com.ar}"
 DB_CONTAINER="${DB_CONTAINER:-yaa-db}"
 DB_USER="${DB_USER:-yaa_user}"
 DB_NAME="${DB_NAME:-yaa_db}"
@@ -29,7 +31,7 @@ MAX_BODY="${MAX_BODY:-20M}"
 
 # Marca para reconocer los archivos que generó este script y no pisar los
 # que escribiste vos a mano.
-MARKER="# generado por provision-custom-domains.sh"
+MARKER="# generado por provision-domains.sh"
 
 DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
@@ -66,13 +68,30 @@ $DRY_RUN && log "(modo dry-run: no se cambia nada)"
 
 mkdir -p "$WEBROOT"
 
-# --- Dominios verificados en la base ----------------------------------------
-DOMAINS=$(docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c \
-  'SELECT "customDomain" FROM "Tenant" WHERE "customDomainVerified" = true AND "customDomain" IS NOT NULL;' \
+# --- Dominios a atender ------------------------------------------------------
+# Dos fuentes:
+#   a) el subdominio de cada tienda (tienda.yaa.com.ar)
+#   b) el dominio propio de las tiendas que ya lo verificaron por DNS
+#
+# Los subdominios los cubre hoy el certificado wildcard, pero ese wildcard se
+# emitió con desafío DNS manual y NO se renueva solo (DonWeb no tiene plugin
+# de certbot). Emitiendo un certificado por subdominio con desafío HTTP, cada
+# tienda pasa a renovarse sola y desaparece esa dependencia manual.
+#
+# El techo es el límite de Let's Encrypt: 50 certificados nuevos por dominio
+# registrado cada 7 días (~200 altas nuevas por mes). Las renovaciones no
+# consumen cupo, así que el límite aplica solo a tiendas nuevas.
+SQL_QUERY='
+  SELECT subdomain || $$.'"$ROOT_DOMAIN"'$$ FROM "Tenant" WHERE subdomain IS NOT NULL
+  UNION
+  SELECT "customDomain" FROM "Tenant"
+    WHERE "customDomainVerified" = true AND "customDomain" IS NOT NULL;
+'
+DOMAINS=$(docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "$SQL_QUERY" \
   | tr -d '\r' | sed '/^$/d')
 
 if [[ -z "$DOMAINS" ]]; then
-  log "No hay dominios propios verificados. Nada que hacer."
+  log "No hay tiendas ni dominios propios. Nada que hacer."
   exit 0
 fi
 
