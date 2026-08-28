@@ -24,7 +24,18 @@ function withRealHost(handler: (req: NextRequest) => Promise<Response>) {
     const url = new URL(req.url);
     if (url.host === host) return handler(req);
 
-    url.host = host;
+    // hostname + port por separado, NO `url.host = host`: el setter de `host`
+    // se queda con el puerto viejo cuando el valor nuevo no trae uno. Detrás
+    // de un proxy en HTTPS el header viene sin puerto (443 es implícito), así
+    // que `host = "tienda.yaa.com.ar"` sobre la URL interna
+    // http://localhost:3014/... daba tienda.yaa.com.ar:3014 — un puerto que
+    // desde afuera no responde. Auth.js armaba con eso todos sus redirects:
+    // el signout mandaba el navegador a la nada, y el login se colgaba porque
+    // el fetch seguía ese redirect hasta agotar el timeout. En local nunca se
+    // ve, porque ahí el puerto (3010) no es estándar y el header sí lo trae.
+    const [hostname, port = ""] = host.split(":");
+    url.hostname = hostname;
+    url.port = port;
     url.protocol = req.headers.get("x-forwarded-proto") ?? url.protocol;
     return handler(new NextRequest(url, req));
   };
