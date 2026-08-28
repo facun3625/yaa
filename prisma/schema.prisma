@@ -66,7 +66,66 @@ model BillingPayment {
   createdAt   DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  resellerCommission ResellerCommission?
 
+  @@index([tenantId])
+}
+
+// ---------- Programa de revendedores ----------
+
+// Fila única (id fijo) con las condiciones del bono por activación. Editable
+// desde /platform — y estos mismos valores son los que se muestran en la
+// página pública de /revendedores, para que nunca queden desincronizados.
+model ResellerSettings {
+  id                    String   @id @default("global")
+  activationBonusAmount Decimal  @default(0)
+  activationBonusDays   Int      @default(60)
+  updatedAt             DateTime @updatedAt
+}
+
+// Escalones de comisión: "desde tantas tiendas activas, tal porcentaje".
+// Se editan libremente desde /platform — cuantos se quiera.
+model ResellerCommissionTier {
+  id              String   @id @default(cuid())
+  minActiveStores Int      @unique
+  percent         Decimal
+  createdAt       DateTime @default(now())
+}
+
+enum ResellerCommissionType {
+  RECURRING
+  ACTIVATION_BONUS
+}
+
+enum ResellerCommissionStatus {
+  PENDING
+  PAID
+}
+
+// Una fila por cada comisión que un revendedor ganó — recurrente (atada a
+// un cobro real de BillingPayment) o el bono de activación (uno por
+// tienda, una sola vez). El super admin las marca pagadas a mano cuando de
+// verdad transfiere la plata, igual que ya hace con los cobros de tiendas.
+model ResellerCommission {
+  id             String                   @id @default(cuid())
+  resellerId     String
+  tenantId       String
+  type           ResellerCommissionType
+  amount         Decimal
+  // Null en el bono de activación — ahí no aplica un % sobre nada.
+  percentApplied Decimal?
+  status         ResellerCommissionStatus @default(PENDING)
+  createdAt      DateTime                 @default(now())
+  paidAt         DateTime?
+
+  // Solo en RECURRING — el cobro puntual que generó esta comisión.
+  billingPaymentId String?         @unique
+  billingPayment    BillingPayment? @relation(fields: [billingPaymentId], references: [id])
+
+  reseller User   @relation("ResellerCommissions", fields: [resellerId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([resellerId])
   @@index([tenantId])
 }
 
@@ -106,6 +165,7 @@ model Tenant {
   // de cara al dueño de la tienda.
   referredByResellerId String?
   referredByReseller    User?   @relation("TenantReferredBy", fields: [referredByResellerId], references: [id])
+  resellerCommissions   ResellerCommission[]
   categories          ProductCategory[]
   products            Product[]
   stockGroups         StockGroup[]
@@ -176,6 +236,7 @@ model User {
   // Tiendas que este revendedor trajo (role RESELLER) — no confundir con
   // `tenant` de arriba, que es la tienda PROPIA de un admin/cliente.
   referredTenants Tenant[] @relation("TenantReferredBy")
+  resellerCommissions ResellerCommission[] @relation("ResellerCommissions")
 
   accounts         Account[]
   sessions         Session[]

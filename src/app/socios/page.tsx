@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { requireReseller } from "@/lib/require-reseller";
 import { BILLING_STATUS_LABELS, BILLING_STATUS_COLORS } from "@/lib/billing-status";
+import { getResellerTierPercent } from "@/lib/reseller-commission";
 import { CopyLinkButton, SetPasswordForm } from "./socio-tools";
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
@@ -22,11 +23,21 @@ export default async function SociosPage() {
     color: { dark: "#1d1713", light: "#ffffff" },
   });
 
-  const referredTenants = await prisma.tenant.findMany({
-    where: { referredByResellerId: reseller.id },
-    include: { plan: true, settings: { where: { key: "store_name" } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [referredTenants, commissions, currentTierPercent] = await Promise.all([
+    prisma.tenant.findMany({
+      where: { referredByResellerId: reseller.id },
+      include: { plan: true, settings: { where: { key: "store_name" } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.resellerCommission.findMany({
+      where: { resellerId: reseller.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    getResellerTierPercent(reseller.id),
+  ]);
+
+  const paidTotal = commissions.filter((c) => c.status === "PAID").reduce((sum, c) => sum + Number(c.amount), 0);
+  const pendingTotal = commissions.filter((c) => c.status === "PENDING").reduce((sum, c) => sum + Number(c.amount), 0);
 
   return (
     <main className="min-h-screen bg-[#030712] px-4 py-12 text-white">
@@ -76,6 +87,13 @@ export default async function SociosPage() {
                       <p className="truncate font-medium">{storeName}</p>
                       <p className="text-xs text-white/40">
                         {tenant.subdomain}.{ROOT_DOMAIN} · {tenant.plan?.name ?? "Sin plan"}
+                        {tenant.billingStatus === "ACTIVE" && tenant.nextBillingDate && tenant.plan && (
+                          <>
+                            {" "}· próximo cobro estimado{" "}
+                            {new Date(tenant.nextBillingDate).toLocaleDateString("es-AR")} · ~$
+                            {((Number(tenant.plan.priceMonthly) * currentTierPercent) / 100).toLocaleString("es-AR")}
+                          </>
+                        )}
                       </p>
                     </div>
                     <span
@@ -91,11 +109,46 @@ export default async function SociosPage() {
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h2 className="text-sm font-semibold text-white/80">Comisiones</h2>
-          <p className="mt-2 text-sm text-white/40">
-            Todavía no hay nada para mostrar acá — esta sección se activa cuando se registre el primer cobro de una
-            tienda que trajiste.
-          </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white/80">Comisiones</h2>
+            <span className="text-xs text-white/40">Tu escalón actual: {currentTierPercent}%</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs text-white/40">Cobrado</p>
+              <p className="mt-1 text-2xl font-bold">${paidTotal.toLocaleString("es-AR")}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs text-white/40">Pendiente</p>
+              <p className="mt-1 text-2xl font-bold text-[#ff7658]">${pendingTotal.toLocaleString("es-AR")}</p>
+            </div>
+          </div>
+          {commissions.length === 0 ? (
+            <p className="mt-4 text-sm text-white/40">
+              Todavía no hay nada para mostrar acá — esta sección se activa cuando se registre el primer cobro de
+              una tienda que trajiste.
+            </p>
+          ) : (
+            <ul className="mt-4 flex flex-col divide-y divide-white/10">
+              {commissions.map((c) => (
+                <li key={c.id} className="flex items-center justify-between py-2.5 text-sm">
+                  <span className="text-white/70">
+                    {c.type === "ACTIVATION_BONUS" ? "Bono de activación" : `Comisión recurrente (${c.percentApplied}%)`}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">${Number(c.amount).toLocaleString("es-AR")}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        c.status === "PAID" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+                      }`}
+                    >
+                      {c.status === "PAID" ? "Pagada" : "Pendiente"}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* Se registró con Google y no tiene contraseña propia todavía */}

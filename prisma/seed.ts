@@ -89,6 +89,26 @@ async function main() {
     await prisma.pointsRule.create({ data: { tenantId: tenant.id, pointsPerAmount: 1 } });
   }
 
+  // Condiciones del programa de revendedores — arrancan con valores
+  // razonables, 100% editables después desde /platform/revendedores.
+  await prisma.resellerSettings.upsert({
+    where: { id: "global" },
+    update: {},
+    create: { id: "global", activationBonusAmount: 5000, activationBonusDays: 60 },
+  });
+  const tierDefaults = [
+    { minActiveStores: 0, percent: 15 },
+    { minActiveStores: 10, percent: 20 },
+    { minActiveStores: 25, percent: 25 },
+  ];
+  for (const tier of tierDefaults) {
+    await prisma.resellerCommissionTier.upsert({
+      where: { minActiveStores: tier.minActiveStores },
+      update: {},
+      create: tier,
+    });
+  }
+
   console.log(`Super admin -> ${superAdmin.email} / ${superAdminPassword} (login en /platform/login)`);
   console.log(`Tienda demo -> ${tenant.subdomain}.localhost:3000`);
   console.log(`Admin de tienda -> ${admin.email} / ${adminPassword}`);

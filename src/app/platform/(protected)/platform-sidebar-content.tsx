@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, PlusIcon } from "lucide-react";
+import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, PlusIcon, UsersIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const sections = [
   { href: "/platform", label: "Resumen", icon: LayoutDashboardIcon },
   { href: "/platform/tiendas", label: "Tiendas", icon: StoreIcon },
   { href: "/platform/planes", label: "Planes", icon: CreditCardIcon },
+  { href: "/platform/revendedores", label: "Revendedores", icon: UsersIcon },
 ];
 
 export function PlatformSidebarContent({ onNavigate }: { onNavigate?: () => void }) {

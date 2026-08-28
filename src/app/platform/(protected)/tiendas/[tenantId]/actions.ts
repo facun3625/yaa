@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { generateCommissionsForPayment } from "@/lib/reseller-commission";
 
 function revalidateTenant(tenantId: string) {
   revalidatePath(`/platform/tiendas/${tenantId}`);
@@ -55,7 +56,7 @@ export async function registerPayment(tenantId: string, formData: FormData) {
     throw new Error("El fin del período debe ser posterior al inicio");
   }
 
-  await prisma.$transaction([
+  const [payment] = await prisma.$transaction([
     prisma.billingPayment.create({
       data: {
         tenantId,
@@ -70,6 +71,11 @@ export async function registerPayment(tenantId: string, formData: FormData) {
       data: { nextBillingDate: parsed.periodEnd, billingStatus: "ACTIVE" },
     }),
   ]);
+
+  // Fuera de la transacción a propósito: lee el billingStatus recién
+  // actualizado arriba para calcular el escalón del revendedor, así que
+  // necesita que ese update ya haya confirmado.
+  await generateCommissionsForPayment(tenantId, payment.id, parsed.amount);
 
   revalidateTenant(tenantId);
 }
