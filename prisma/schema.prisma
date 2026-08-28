@@ -221,10 +221,18 @@ model User {
   pendingPlan      Plan?     @relation("PendingSignupPlan", fields: [pendingPlanId], references: [id])
   onboardingPaidAt DateTime?
 
-  // Código propio de un revendedor (role RESELLER) para repartir — se
-  // genera al elegir "ser socio" en /registro, único, se usa en la URL del
-  // QR (/registro?ref=CODIGO). null para todos los demás roles.
+  // Código propio de un revendedor para repartir — se genera al elegir "ser
+  // socio" en /registro, único, se usa en la URL del QR
+  // (/registro?ref=CODIGO). Ser revendedor es tener este código, NO un rol
+  // aparte: un CUSTOMER sin tienda todavía o un ADMIN de su propia tienda
+  // pueden tenerlo por igual (ver lib/require-reseller.ts).
   referralCode String? @unique
+
+  // Se marca acá en vez de borrar referralCode al desactivar — así el
+  // historial de comisiones sigue apareciendo en /platform/revendedores en
+  // vez de desaparecer, y el código no queda libre para que otra persona
+  // lo reclame.
+  resellerDeactivatedAt DateTime?
 
   // Código de un revendedor que alguien trae consigo mientras todavía se
   // está registrando (llegó por /registro?ref=CODIGO, o lo tipeó a mano) —

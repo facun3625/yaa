@@ -108,12 +108,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
                   where: { tenantId_email: { tenantId: credentialsTenantId, email } },
                 })
               : scope === "onboarding"
-                // Alguien registrándose en yaa.com.ar todavía sin tienda
-                // (ver /registro y lib/require-onboarding.ts), o un
-                // revendedor ya promovido volviendo a entrar a /socios (ver
-                // lib/require-reseller.ts) — comparten el mismo login.
+                // Alguien registrándose en yaa.com.ar todavía sin tienda —
+                // ver /registro y lib/require-onboarding.ts. Un revendedor
+                // sin tienda propia sigue siendo CUSTOMER acá (ser
+                // revendedor es tener un código, no un rol aparte — ver
+                // lib/require-reseller.ts), así que entra por el mismo
+                // login sin necesitar un scope propio.
                 ? await prisma.user.findFirst({
-                    where: { email, tenantId: null, role: { in: ["CUSTOMER", "RESELLER"] } },
+                    where: { email, tenantId: null, role: "CUSTOMER" },
                   })
                 : null;
           if (!user?.passwordHash) return null;

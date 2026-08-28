@@ -54,9 +54,12 @@ export async function createTenantFromOnboarding(formData: FormData) {
   // cuando la tienda se crea de verdad, no antes. Un código inválido o de
   // un revendedor dado de baja simplemente no asocia nada, no bloquea el
   // alta.
+  // Sin filtro de role a propósito: ser revendedor es tener un código, no
+  // un rol — puede ser alguien sin tienda todavía (CUSTOMER) o admin de su
+  // propia tienda que ADEMÁS reparte su código (ver lib/require-reseller.ts).
   const reseller = user.pendingReferralCode
     ? await prisma.user.findFirst({
-        where: { referralCode: user.pendingReferralCode, role: "RESELLER" },
+        where: { referralCode: user.pendingReferralCode, resellerDeactivatedAt: null },
       })
     : null;
 

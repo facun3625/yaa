@@ -6,6 +6,7 @@ import {
   deleteTier,
   markCommissionPaid,
   deactivateReseller,
+  reactivateReseller,
 } from "./actions";
 
 export default async function RevendedoresPage() {
@@ -19,7 +20,10 @@ export default async function RevendedoresPage() {
     }),
     prisma.resellerCommissionTier.findMany({ orderBy: { minActiveStores: "asc" } }),
     prisma.user.findMany({
-      where: { role: "RESELLER" },
+      // Ser revendedor es tener un código, no un rol — puede ser alguien
+      // sin tienda todavía o admin de su propia tienda que además reparte
+      // su código (ver lib/require-reseller.ts).
+      where: { referralCode: { not: null } },
       include: {
         referredTenants: { select: { id: true, billingStatus: true } },
         resellerCommissions: true,
@@ -123,7 +127,8 @@ export default async function RevendedoresPage() {
                     <div>
                       <p className="font-medium">{reseller.name ?? reseller.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {reseller.email} · código {reseller.referralCode ?? "(desactivado)"} · {reseller.referredTenants.length} tiendas traídas ({activeCount} activas)
+                        {reseller.email} · código {reseller.referralCode}
+                        {reseller.resellerDeactivatedAt && " (desactivado)"} · {reseller.referredTenants.length} tiendas traídas ({activeCount} activas)
                       </p>
                     </div>
                     <div className="flex items-center gap-4 text-right text-xs">
@@ -135,7 +140,13 @@ export default async function RevendedoresPage() {
                         <p className="text-muted-foreground">Pendiente</p>
                         <p className="font-semibold text-amber-600 dark:text-amber-400">${pendingTotal.toLocaleString("es-AR")}</p>
                       </div>
-                      {reseller.referralCode && (
+                      {reseller.resellerDeactivatedAt ? (
+                        <form action={reactivateReseller.bind(null, reseller.id)}>
+                          <button type="submit" className="text-xs text-primary hover:underline">
+                            Reactivar
+                          </button>
+                        </form>
+                      ) : (
                         <form action={deactivateReseller.bind(null, reseller.id)}>
                           <button type="submit" className="text-xs text-destructive hover:underline">
                             Desactivar

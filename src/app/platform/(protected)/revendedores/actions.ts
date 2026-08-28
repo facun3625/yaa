@@ -84,6 +84,12 @@ export async function markCommissionPaid(id: string) {
 // más simplemente no queda asociado a nadie.
 export async function deactivateReseller(userId: string) {
   await requireSuperAdmin();
-  await prisma.user.update({ where: { id: userId }, data: { referralCode: null } });
+  await prisma.user.update({ where: { id: userId }, data: { resellerDeactivatedAt: new Date() } });
+  revalidateRevendedores();
+}
+
+export async function reactivateReseller(userId: string) {
+  await requireSuperAdmin();
+  await prisma.user.update({ where: { id: userId }, data: { resellerDeactivatedAt: null } });
   revalidateRevendedores();
 }

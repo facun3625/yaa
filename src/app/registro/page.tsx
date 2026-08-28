@@ -10,7 +10,6 @@ import { AlreadyLoggedInBanner } from "./already-logged-in-banner";
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "admin de una tienda",
   SUPER_ADMIN: "super admin de la plataforma",
-  RESELLER: "socio comercial",
 };
 
 export default async function RegistroPage({
@@ -26,8 +25,6 @@ export default async function RegistroPage({
   // lib/require-onboarding.ts), así que acá también se manda a buscar el
   // estado real en vez de confiar en session.user.tenantId directo.
   const user = session?.user ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
-
-  if (user?.role === "RESELLER") redirect("/socios");
 
   // Volviendo de Google con un código de revendedor en la URL (ver
   // registro-form.tsx) — se guarda acá, antes de decidir a dónde seguir.

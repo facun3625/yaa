@@ -19,7 +19,7 @@ export function CopyLinkButton({ link }: { link: string }) {
         toast.success("Link copiado");
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10"
+      className="flex shrink-0 items-center gap-1.5 rounded-lg border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
       {copied ? "Copiado" : "Copiar"}
@@ -56,9 +56,9 @@ export function SetPasswordForm() {
         placeholder="Mínimo 6 caracteres"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#ff5a36] focus:ring-2 focus:ring-[#ff5a36]/20"
+        className="w-full rounded-xl border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
       />
-      <Button type="submit" disabled={pending} className="w-full rounded-full bg-[#ff5a36] text-white hover:bg-[#ff5a36]/90">
+      <Button type="submit" disabled={pending} className="w-full rounded-full">
         {pending ? "Guardando..." : "Definir contraseña"}
       </Button>
     </form>
