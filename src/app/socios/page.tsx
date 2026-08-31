@@ -95,8 +95,10 @@ export default async function SociosResumenPage() {
         </Link>
       </div>
 
+      {/* Directo a elegir plan, no a /registro/elegir — ya está claro qué
+      quiere con solo haber clickeado esto desde acá. */}
       <Link
-        href="/registro/elegir"
+        href="/registro/plan"
         className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
       >
         ¿Además querés vender vos? <span className="font-semibold text-foreground">Creá tu propia tienda</span> — no hace falta dejar de ser socio.

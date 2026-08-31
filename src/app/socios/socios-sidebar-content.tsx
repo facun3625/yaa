@@ -47,10 +47,14 @@ export function SociosSidebarContent({ onNavigate }: { onNavigate?: () => void }
       </nav>
 
       {/* Ser socio no impide tener tu propia tienda además — ver
-      lib/require-reseller.ts y registro/elegir/actions.ts. */}
+      lib/require-reseller.ts. Directo a elegir plan, no a /registro/elegir:
+      clickear esto ACÁ, desde su propio panel, ya deja clara la intención —
+      mostrarle nuevamente "¿qué querés hacer?" sería preguntarle algo que
+      acaba de contestar. requireOnboardingUser() en /registro/plan igual lo
+      deja pasar (sigue siendo CUSTOMER, sin tenant). */}
       <div className="border-t border-sidebar-border px-3 py-3">
         <Link
-          href="/registro/elegir"
+          href="/registro/plan"
           onClick={onNavigate}
           className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
