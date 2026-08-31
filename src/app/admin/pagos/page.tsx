@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireTenantAdmin } from "@/lib/require-admin";
+import { toPublicConfig, type MercadoPagoStoredConfig } from "@/lib/mercadopago-config";
 import { PaymentMethodRow } from "./payment-method-row";
 import { TransferConfigForm } from "./transfer-config-form";
 import { CashRestrictionForm } from "./cash-restriction-form";
+import { MercadoPagoConfigForm } from "./mercadopago-config-form";
+
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
 const METHOD_LABELS: Record<string, { title: string; description: string }> = {
   CASH_ON_DELIVERY: {
@@ -15,7 +19,7 @@ const METHOD_LABELS: Record<string, { title: string; description: string }> = {
   },
   MERCADOPAGO: {
     title: "MercadoPago",
-    description: "Próximamente — todavía no está disponible.",
+    description: "El comprador paga con tarjeta o dinero en cuenta. El cobro va directo a tu cuenta de MercadoPago.",
   },
 };
 
@@ -35,6 +39,12 @@ export default async function PaymentMethodsPage() {
 
   const transferConfig = (byType.get("TRANSFER")?.config as TransferConfig | null) ?? {};
 
+  // toPublicConfig descifra y enmascara — al navegador nunca le llega el
+  // access token real, solo si está cargado y sus últimos 4 caracteres.
+  const mpConfig = toPublicConfig((byType.get("MERCADOPAGO")?.config as MercadoPagoStoredConfig | null) ?? null);
+  const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+  const webhookUrl = `${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}/api/webhooks/mercadopago`;
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Medios de pago</h1>
@@ -51,10 +61,12 @@ export default async function PaymentMethodsPage() {
                 defaultTitle={defaultTitle}
                 description={description}
                 enabled={row?.enabled ?? false}
-                disabled={type === "MERCADOPAGO"}
               />
               {type === "TRANSFER" && (row?.enabled ?? false) && (
                 <TransferConfigForm key={JSON.stringify(transferConfig)} config={transferConfig} />
+              )}
+              {type === "MERCADOPAGO" && (row?.enabled ?? false) && (
+                <MercadoPagoConfigForm key={JSON.stringify(mpConfig)} config={mpConfig} webhookUrl={webhookUrl} />
               )}
               {type === "CASH_ON_DELIVERY" && (row?.enabled ?? false) && (
                 <CashRestrictionForm minPreviousOrders={row?.minPreviousOrders ?? null} />

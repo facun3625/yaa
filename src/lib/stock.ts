@@ -1,6 +1,45 @@
 import { prisma } from "@/lib/prisma";
+import { logGroupStockMovement } from "@/lib/stock-movements";
 
 const UNLIMITED_STOCK = 999;
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+// Devuelve al stock lo que un pedido había reservado. El stock se descuenta
+// al crear el pedido (incluso antes de que el pago esté confirmado), así que
+// cancelar tiene que revertirlo.
+//
+// Vive acá y no en el archivo de acciones del admin porque lo usan dos
+// lugares: el admin al rechazar/cancelar, y el webhook de MercadoPago cuando
+// un pago se rechaza. Duplicar lógica de stock es la forma más rápida de que
+// los dos caminos se desincronicen.
+export async function restoreStockForOrder(tx: Tx, orderId: string, note?: string) {
+  const items = await tx.orderItem.findMany({
+    where: { orderId },
+    include: { productVariant: true },
+  });
+  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+
+  const byGroup = new Map<string, number>();
+  for (const item of items) {
+    const groupId = item.productVariant.stockGroupId;
+    byGroup.set(groupId, (byGroup.get(groupId) ?? 0) + item.quantity);
+  }
+  for (const [stockGroupId, quantity] of byGroup) {
+    await tx.stockGroupStock.updateMany({
+      where: { stockGroupId, deliveryDateId: order.deliveryDateId },
+      data: { quantitySold: { decrement: quantity } },
+    });
+    await logGroupStockMovement(tx, {
+      tenantId: order.tenantId,
+      deliveryDateId: order.deliveryDateId,
+      stockGroupId,
+      reason: "RESTOCK",
+      delta: quantity,
+      note: note ?? `Pedido ${order.id} cancelado`,
+    });
+  }
+}
 
 // Remanente real, leído en el momento — usado para revalidar justo antes de
 // agregar/incrementar en el carrito, porque el remanente que trae la página

@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireTenantAdmin } from "@/lib/require-admin";
 import type { OrderStatus } from "@/generated/prisma/client";
-import { logGroupStockMovement } from "@/lib/stock-movements";
 import { awardPointsForOrder, reversePointsForOrder } from "@/lib/points";
+import { restoreStockForOrder } from "@/lib/stock";
 
 // Los tres estados "activos" del pedido se pueden reasignar libremente
 // entre sí en cualquier sentido (incluso desde Entregado hacia atrás, por
@@ -14,34 +14,6 @@ import { awardPointsForOrder, reversePointsForOrder } from "@/lib/points";
 const ACTIVE_STATUSES: OrderStatus[] = ["CONFIRMED", "PREPARING", "DELIVERED"];
 
 const CANCELLABLE_FROM: OrderStatus[] = ["CONFIRMED", "PREPARING"];
-
-async function restoreStockForOrder(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], orderId: string) {
-  const items = await tx.orderItem.findMany({
-    where: { orderId },
-    include: { productVariant: true },
-  });
-  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
-
-  const byGroup = new Map<string, number>();
-  for (const item of items) {
-    const groupId = item.productVariant.stockGroupId;
-    byGroup.set(groupId, (byGroup.get(groupId) ?? 0) + item.quantity);
-  }
-  for (const [stockGroupId, quantity] of byGroup) {
-    await tx.stockGroupStock.updateMany({
-      where: { stockGroupId, deliveryDateId: order.deliveryDateId },
-      data: { quantitySold: { decrement: quantity } },
-    });
-    await logGroupStockMovement(tx, {
-      tenantId: order.tenantId,
-      deliveryDateId: order.deliveryDateId,
-      stockGroupId,
-      reason: "RESTOCK",
-      delta: quantity,
-      note: `Pedido ${order.id} cancelado`,
-    });
-  }
-}
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   const { tenant } = await requireTenantAdmin();

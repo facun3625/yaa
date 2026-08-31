@@ -10,6 +10,10 @@ import { saveUploadedFile } from "@/lib/storage";
 import { isWeeklyWindowStillOpen } from "@/lib/availability";
 import { logGroupStockMovement } from "@/lib/stock-movements";
 import { awardPointsForOrder } from "@/lib/points";
+import { getTenantMercadoPagoCredentials } from "@/lib/mercadopago-config";
+import { createPreference } from "@/lib/mercadopago";
+
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
 const itemSchema = z.object({
   productVariantId: z.string(),
@@ -20,7 +24,7 @@ const placeOrderSchema = z
   .object({
     deliveryDateId: z.string().min(1),
     fulfillmentType: z.enum(["DELIVERY", "PICKUP"]),
-    paymentMethod: z.enum(["CASH_ON_DELIVERY", "TRANSFER"]),
+    paymentMethod: z.enum(["CASH_ON_DELIVERY", "TRANSFER", "MERCADOPAGO"]),
     items: z.array(itemSchema).min(1, "El carrito está vacío"),
     phone: z.string().trim().min(1, "Ingresá un teléfono de contacto"),
     address: z.string().trim().optional(),
@@ -187,7 +191,15 @@ export async function placeOrder(formData: FormData) {
     proofUrl = await saveUploadedFile(file, "payment-proofs");
   }
 
-  const status = parsed.paymentMethod === "CASH_ON_DELIVERY" ? "CONFIRMED" : "PAYMENT_REVIEW";
+  // MERCADOPAGO arranca en PENDING_PAYMENT (todavía no pagó, lo estamos por
+  // mandar a MP) y lo confirma el webhook. PAYMENT_REVIEW es otra cosa: es
+  // "pagó y hay un comprobante esperando que alguien lo mire a mano".
+  const status =
+    parsed.paymentMethod === "CASH_ON_DELIVERY"
+      ? "CONFIRMED"
+      : parsed.paymentMethod === "MERCADOPAGO"
+        ? "PENDING_PAYMENT"
+        : "PAYMENT_REVIEW";
 
   const order = await prisma.$transaction(async (tx) => {
     if (deliveryDate.capacity != null) {
@@ -369,5 +381,37 @@ export async function placeOrder(formData: FormData) {
     return created;
   });
 
-  return { orderId: order.id };
+  if (parsed.paymentMethod !== "MERCADOPAGO") {
+    return { orderId: order.id, paymentUrl: null };
+  }
+
+  // Recién acá, con el pedido ya creado y el total definitivo calculado
+  // dentro de la transacción, le pedimos a MP el link de pago. Si esto
+  // falla, el pedido queda en PENDING_PAYMENT y el comprador ve el error —
+  // no lo dejamos con un pedido "confirmado" que nadie pagó.
+  const credentials = await getTenantMercadoPagoCredentials(tenant.id);
+  if (!credentials) {
+    throw new Error("MercadoPago no está configurado en esta tienda. Elegí otro medio de pago.");
+  }
+
+  const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+  const base = `${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}`;
+
+  const preference = await createPreference(credentials.accessToken, {
+    // Un solo ítem con el total: el detalle real ya está en el pedido, y así
+    // el importe que ve en MP coincide exacto con el total (con envío y
+    // descuentos ya aplicados) en vez de tener que reconstruirlo.
+    items: [{ title: `Pedido en ${tenant.subdomain}`, quantity: 1, unitPrice: Number(order.total) }],
+    externalReference: order.id,
+    notificationUrl: `${base}/api/webhooks/mercadopago`,
+    backUrl: `${base}/pedidos/${order.id}`,
+    payerEmail: session?.user?.email ?? parsed.guestEmail ?? null,
+  });
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { mpPreferenceId: preference.id },
+  });
+
+  return { orderId: order.id, paymentUrl: preference.initPoint };
 }

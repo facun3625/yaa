@@ -248,8 +248,14 @@ export function CheckoutForm({
 
     startTransition(async () => {
       try {
-        const { orderId } = await placeOrder(formData);
+        const { orderId, paymentUrl } = await placeOrder(formData);
         clearCart();
+        if (paymentUrl) {
+          // MercadoPago: el pedido queda pendiente hasta que pague. Salimos
+          // del sitio, así que window.location y no router.push.
+          window.location.href = paymentUrl;
+          return;
+        }
         router.push(`/pedidos/${orderId}`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo confirmar el pedido");
@@ -557,7 +563,11 @@ export function CheckoutForm({
               Atrás
             </Button>
             <Button type="submit" size="lg" disabled={pending} className="flex-1">
-              {pending ? "Confirmando…" : `Confirmar pedido · ${formatPrice(total)}`}
+              {pending
+                ? "Confirmando…"
+                : method === "MERCADOPAGO"
+                  ? `Pagar con MercadoPago · ${formatPrice(total)}`
+                  : `Confirmar pedido · ${formatPrice(total)}`}
             </Button>
           </div>
         </StepCard>
