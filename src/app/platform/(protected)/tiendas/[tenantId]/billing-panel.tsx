@@ -229,6 +229,11 @@ export function BillingPanel({
 
           {showPaymentForm && (
             <form action={handlePayment} className="flex flex-col gap-3 rounded-lg border p-3">
+              {requestedPlan && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Al registrar este pago también se va a aplicar el plan pedido: <strong>{requestedPlan.name}</strong>.
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pay-amount" className="text-xs">Monto</Label>

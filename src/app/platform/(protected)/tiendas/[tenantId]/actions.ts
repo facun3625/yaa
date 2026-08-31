@@ -74,6 +74,15 @@ export async function registerPayment(tenantId: string, formData: FormData) {
     throw new Error("El fin del período debe ser posterior al inicio");
   }
 
+  // Si había un pedido de cambio de plan pendiente, registrar el cobro es
+  // justo el momento en que confirmás que la plata entró — se aplica acá
+  // mismo, en el mismo click, en vez de hacerte volver a esta pantalla a
+  // tocar "Aplicar" aparte.
+  const pending = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { requestedPlanId: true },
+  });
+
   const [payment] = await prisma.$transaction([
     prisma.billingPayment.create({
       data: {
@@ -86,7 +95,13 @@ export async function registerPayment(tenantId: string, formData: FormData) {
     }),
     prisma.tenant.update({
       where: { id: tenantId },
-      data: { nextBillingDate: parsed.periodEnd, billingStatus: "ACTIVE" },
+      data: {
+        nextBillingDate: parsed.periodEnd,
+        billingStatus: "ACTIVE",
+        ...(pending?.requestedPlanId
+          ? { planId: pending.requestedPlanId, requestedPlanId: null, requestedPlanAt: null }
+          : {}),
+      },
     }),
   ]);
 

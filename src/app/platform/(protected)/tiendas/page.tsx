@@ -32,9 +32,12 @@ export default async function TenantsPage({
     orderBy: { createdAt: "desc" },
     include: {
       plan: true,
+      requestedPlan: true,
       _count: { select: { products: true, orders: true } },
     },
   });
+
+  const pendingRequestsCount = tenants.filter((t) => t.requestedPlan).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,6 +52,15 @@ export default async function TenantsPage({
           Nueva tienda
         </Button>
       </div>
+
+      {pendingRequestsCount > 0 && (
+        <div className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+          {pendingRequestsCount === 1
+            ? "1 tienda pidió cambiar de plan"
+            : `${pendingRequestsCount} tiendas pidieron cambiar de plan`}{" "}
+          — mirá la columna "Plan" en la tabla.
+        </div>
+      )}
 
       <TenantsFilterBar />
 
@@ -74,7 +86,17 @@ export default async function TenantsPage({
                   </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {t.plan ? `${t.plan.name} · ${formatPrice(Number(t.plan.priceMonthly))}/mes` : "Sin plan"}
+                  <div className="flex flex-col gap-1">
+                    <span>{t.plan ? `${t.plan.name} · ${formatPrice(Number(t.plan.priceMonthly))}/mes` : "Sin plan"}</span>
+                    {t.requestedPlan && (
+                      <Link
+                        href={`/platform/tiendas/${t.id}`}
+                        className="w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 hover:bg-amber-500/25 dark:text-amber-400"
+                      >
+                        Pidió {t.requestedPlan.name} →
+                      </Link>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BILLING_STATUS_COLORS[t.billingStatus]}`}>
