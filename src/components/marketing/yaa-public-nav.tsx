@@ -2,12 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 export function YaaPublicNav() {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const { data: session } = useSession();
+
+  // Una sesión acá (dominio raíz) solo puede ser alguien registrándose
+  // todavía sin tienda, un revendedor, o el super admin — el login de un
+  // admin de tienda real vive en la cookie de SU subdominio, nunca llega
+  // acá (ver src/auth.ts, cookies host-only). "/registro" ya sabe resolver
+  // a dónde mandar a cada quien (retomar el alta, o "Ver mi panel de
+  // socio" si ya tiene código).
+  const accountHref = session?.user?.role === "SUPER_ADMIN" ? "/platform" : "/registro";
+  const accountLabel = session?.user?.role === "SUPER_ADMIN" ? "Ir a la plataforma" : (session?.user?.name ?? "Mi cuenta");
 
   return (
     <header className="sticky top-0 z-40 bg-[#030712]/90 backdrop-blur-lg">
@@ -26,14 +37,24 @@ export function YaaPublicNav() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
-          {/* "/login" es el login de UNA tienda puntual — necesita un
-          subdominio para saber a cuál (ver src/app/login/page.tsx,
-          getCurrentTenant()). Desde la raíz no hay tienda que resolver, así
-          que sería 404. "/registro" sí funciona sin subdominio: tiene su
-          propia pestaña "Ya tengo cuenta" y ahí entran dueños de tienda que
-          typean mal, revendedores, y quien quedó a mitad del alta. */}
-          <Link href="/registro" className="yaa-btn yaa-btn-secondary py-2! px-4! text-sm">Iniciar sesión</Link>
-          <Link href="/registro" className="yaa-btn yaa-btn-primary py-2! px-5! text-sm">Probar 10 días gratis</Link>
+          {session?.user ? (
+            <Link href={accountHref} className="yaa-btn yaa-btn-primary py-2! px-5! text-sm">
+              <User className="size-4" />
+              {accountLabel}
+            </Link>
+          ) : (
+            <>
+              {/* "/login" es el login de UNA tienda puntual — necesita un
+              subdominio para saber a cuál (ver src/app/login/page.tsx,
+              getCurrentTenant()). Desde la raíz no hay tienda que resolver,
+              así que sería 404. "/registro" sí funciona sin subdominio:
+              tiene su propia pestaña "Ya tengo cuenta" y ahí entran dueños
+              de tienda que typean mal, revendedores, y quien quedó a mitad
+              del alta. */}
+              <Link href="/registro" className="yaa-btn yaa-btn-secondary py-2! px-4! text-sm">Iniciar sesión</Link>
+              <Link href="/registro" className="yaa-btn yaa-btn-primary py-2! px-5! text-sm">Probar 10 días gratis</Link>
+            </>
+          )}
         </div>
 
         <button onClick={() => setOpen((value) => !value)} aria-label={open ? "Cerrar menú" : "Abrir menú"} className="-mr-2 shrink-0 p-2 text-white lg:hidden">
@@ -51,7 +72,14 @@ export function YaaPublicNav() {
             <Link href="/preguntas-frecuentes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Preguntas frecuentes</Link>
             <Link href="/#contacto" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Contacto</Link>
             <div className="my-2 h-px bg-white/10" />
-            <Link href="/registro" onClick={close} className="yaa-btn yaa-btn-primary w-full justify-center">Probar 10 días gratis</Link>
+            {session?.user ? (
+              <Link href={accountHref} onClick={close} className="yaa-btn yaa-btn-primary w-full justify-center">
+                <User className="size-4" />
+                {accountLabel}
+              </Link>
+            ) : (
+              <Link href="/registro" onClick={close} className="yaa-btn yaa-btn-primary w-full justify-center">Probar 10 días gratis</Link>
+            )}
           </nav>
         </div>
       )}

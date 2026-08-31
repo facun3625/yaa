@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Barlow, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { MarketingSessionProvider } from "@/components/marketing/marketing-session-provider";
 import { StoreSettingsProvider } from "@/lib/store-settings-context";
 import { getStoreSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/tenant";
@@ -89,7 +90,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   if (!tenant) {
     return (
       <html lang="es" className={htmlClassName}>
-        <body className="min-h-full">{children}</body>
+        <body className="min-h-full">
+          <MarketingSessionProvider>{children}</MarketingSessionProvider>
+        </body>
       </html>
     );
   }
