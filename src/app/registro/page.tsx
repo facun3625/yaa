@@ -37,6 +37,11 @@ export default async function RegistroPage({
     // quedó, en vez de hacerlo pasar por "Crear cuenta" de nuevo.
     if (user.onboardingPaidAt) redirect("/registro/datos");
     if (user.pendingPlanId) redirect("/registro/pago");
+    // Ya eligió "ser socio" antes (tiene código) y no está a mitad de crear
+    // una tienda — no tiene sentido volver a preguntarle "¿qué querés
+    // hacer?" cada vez que entra. Directo a su panel; "crear mi tienda"
+    // sigue disponible ahí como un link, no como una pregunta obligatoria.
+    if (user.referralCode) redirect("/socios");
     redirect("/registro/elegir");
   }
 

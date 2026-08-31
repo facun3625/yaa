@@ -14,6 +14,7 @@ import { EmailLogTable } from "./email-log-table";
 import { TelegramSettingsForm } from "./telegram-settings-form";
 import { DocumentacionTab } from "./documentacion-tab";
 import { CustomDomainForm } from "./custom-domain-form";
+import { PlanBillingTab } from "./plan-billing-tab";
 
 export default async function ConfiguracionPage() {
   const { tenant } = await requireTenantAdmin();
@@ -24,7 +25,10 @@ export default async function ConfiguracionPage() {
     getSmtpSettings(tenant.id),
     getOrderEmailMessage(tenant.id),
     getTelegramSettings(tenant.id),
-    prisma.tenant.findUnique({ where: { id: tenant.id }, include: { plan: true } }),
+    prisma.tenant.findUnique({
+      where: { id: tenant.id },
+      include: { plan: true, billingPayments: { orderBy: { paidAt: "desc" } } },
+    }),
   ]);
   const allowCustomDomain = tenantBilling?.plan?.allowCustomDomain ?? false;
 
@@ -36,6 +40,9 @@ export default async function ConfiguracionPage() {
         <TabsList className="w-full">
           <TabsTrigger value="general" className="flex-1">
             General
+          </TabsTrigger>
+          <TabsTrigger value="plan" className="flex-1">
+            Mi plan
           </TabsTrigger>
           <TabsTrigger value="about" className="flex-1">
             Sobre nosotros
@@ -64,6 +71,10 @@ export default async function ConfiguracionPage() {
 
         <TabsContent value="general">
           <StoreSettingsForm key={JSON.stringify(settings)} settings={settings} />
+        </TabsContent>
+
+        <TabsContent value="plan">
+          {tenantBilling && <PlanBillingTab tenant={tenantBilling} />}
         </TabsContent>
 
         <TabsContent value="about">
