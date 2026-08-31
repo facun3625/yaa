@@ -1,9 +1,9 @@
 import Image from "next/image";
+import Link from "next/link";
 import { CheckIcon } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/format";
-import { requestPlan } from "./actions";
 
 const TOKEN_PREFIX = "plan-change:";
 
@@ -57,7 +57,7 @@ export default async function CambiarPlanPage({
           <h1 className="mt-2 text-2xl font-bold">Cambiar el plan de {tenant.subdomain}</h1>
           <p className="text-sm text-white/50">
             Plan actual: <span className="font-medium text-white">{tenant.plan?.name ?? "sin plan"}</span>. Elegí el
-            que querés — le llega a nuestro equipo para confirmarlo, todavía no se aplica solo.
+            que querés.
           </p>
         </div>
 
@@ -70,9 +70,8 @@ export default async function CambiarPlanPage({
             {plans.map((plan) => {
               const isCurrent = plan.id === tenant.planId;
               return (
-                <form
+                <div
                   key={plan.id}
-                  action={requestPlan.bind(null, token!, plan.id)}
                   className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6"
                 >
                   <div className="flex items-center justify-between">
@@ -91,14 +90,19 @@ export default async function CambiarPlanPage({
                     <li className="flex items-start gap-2"><CheckIcon className="mt-0.5 size-3.5 shrink-0 text-[#ff7658]" />{plan.maxOrdersPerMonth ? `Hasta ${plan.maxOrdersPerMonth} pedidos/mes` : "Pedidos sin límite"}</li>
                     {plan.allowCustomDomain && <li className="flex items-start gap-2"><CheckIcon className="mt-0.5 size-3.5 shrink-0 text-[#ff7658]" />Dominio propio</li>}
                   </ul>
-                  <button
-                    type="submit"
-                    disabled={isCurrent}
-                    className="yaa-btn yaa-btn-primary mt-6 w-full justify-center disabled:opacity-40"
-                  >
-                    {isCurrent ? "Es tu plan actual" : `Pedir ${plan.name}`}
-                  </button>
-                </form>
+                  {isCurrent ? (
+                    <button type="button" disabled className="yaa-btn yaa-btn-primary mt-6 w-full justify-center opacity-40">
+                      Es tu plan actual
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/cambiar-plan/confirmar?token=${token}&planId=${plan.id}`}
+                      className="yaa-btn yaa-btn-primary mt-6 w-full justify-center"
+                    >
+                      Elegir {plan.name}
+                    </Link>
+                  )}
+                </div>
               );
             })}
           </div>
