@@ -50,6 +50,7 @@ model Plan {
   createdAt         DateTime @default(now())
 
   tenants        Tenant[]
+  planChangeRequests Tenant[] @relation("PlanChangeRequest")
   pendingSignups User[]   @relation("PendingSignupPlan")
 }
 
@@ -143,6 +144,14 @@ model Tenant {
 
   planId          String?
   plan            Plan?            @relation(fields: [planId], references: [id])
+
+  // Pedido del dueño de la tienda para cambiar de plan — se pide desde
+  // /admin/configuracion, lo ve y aplica el super admin a mano desde
+  // /platform (sigue sin pasarela de pago real, esto NO cambia el plan
+  // solo). null cuando no hay ningún pedido pendiente.
+  requestedPlanId String?
+  requestedPlan   Plan?            @relation("PlanChangeRequest", fields: [requestedPlanId], references: [id])
+  requestedPlanAt DateTime?
   billingStatus   BillingStatus    @default(TRIAL)
   trialEndsAt     DateTime?
   nextBillingDate DateTime?

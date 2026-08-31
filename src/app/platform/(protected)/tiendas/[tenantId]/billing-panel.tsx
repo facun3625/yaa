@@ -13,7 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { formatPrice } from "@/lib/format";
 import { BILLING_STATUS_LABELS } from "@/lib/billing-status";
-import { setTenantPlan, setBillingStatus, registerPayment, setTrialEndsAt, setBillingNotes } from "./actions";
+import {
+  setTenantPlan,
+  setBillingStatus,
+  registerPayment,
+  setTrialEndsAt,
+  setBillingNotes,
+  applyPlanChangeRequest,
+  dismissPlanChangeRequest,
+} from "./actions";
 
 type Plan = { id: string; name: string; priceMonthly: number };
 type Payment = { id: string; amount: number; periodStart: string; periodEnd: string; paidAt: string; note: string | null };
@@ -29,6 +37,7 @@ export function BillingPanel({
   nextBillingDate,
   billingNotes,
   payments,
+  requestedPlan,
 }: {
   tenantId: string;
   plans: Plan[];
@@ -38,6 +47,7 @@ export function BillingPanel({
   nextBillingDate: string | null;
   billingNotes: string | null;
   payments: Payment[];
+  requestedPlan: { id: string; name: string } | null;
 }) {
   const { containerRef } = useAdminTheme();
   const [pending, startTransition] = useTransition();
@@ -89,6 +99,29 @@ export function BillingPanel({
     });
   }
 
+  function handleApplyRequest() {
+    if (!requestedPlan) return;
+    startTransition(async () => {
+      try {
+        await applyPlanChangeRequest(tenantId, requestedPlan.id);
+        toast.success(`Plan cambiado a ${requestedPlan.name}`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo aplicar");
+      }
+    });
+  }
+
+  function handleDismissRequest() {
+    startTransition(async () => {
+      try {
+        await dismissPlanChangeRequest(tenantId);
+        toast.success("Pedido descartado");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo descartar");
+      }
+    });
+  }
+
   function handlePayment(formData: FormData) {
     startTransition(async () => {
       try {
@@ -107,6 +140,22 @@ export function BillingPanel({
         <CardTitle className="text-sm font-medium">Plan y facturación</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
+        {requestedPlan && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-500/10 px-3 py-2.5 text-sm">
+            <span className="text-amber-600 dark:text-amber-400">
+              Pidió pasar a <strong>{requestedPlan.name}</strong>
+            </span>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={handleApplyRequest} disabled={pending}>
+                Aplicar
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleDismissRequest} disabled={pending}>
+                Descartar
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label>Plan</Label>

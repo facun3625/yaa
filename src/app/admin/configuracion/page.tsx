@@ -16,8 +16,16 @@ import { DocumentacionTab } from "./documentacion-tab";
 import { CustomDomainForm } from "./custom-domain-form";
 import { PlanBillingTab } from "./plan-billing-tab";
 
-export default async function ConfiguracionPage() {
+const VALID_TABS = new Set(["general", "plan", "about", "popup", "smtp", "mail", "telegram", "docs", "dominio"]);
+
+export default async function ConfiguracionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { tenant } = await requireTenantAdmin();
+  const { tab } = await searchParams;
+  const initialTab = tab && VALID_TABS.has(tab) ? tab : "general";
   const [settings, aboutContent, popupConfig, smtpSettings, orderEmailMessage, telegramSettings, tenantBilling] = await Promise.all([
     getStoreSettings(tenant.id),
     getAboutContent(tenant.id),
@@ -27,7 +35,7 @@ export default async function ConfiguracionPage() {
     getTelegramSettings(tenant.id),
     prisma.tenant.findUnique({
       where: { id: tenant.id },
-      include: { plan: true, billingPayments: { orderBy: { paidAt: "desc" } } },
+      include: { plan: true, requestedPlan: true, billingPayments: { orderBy: { paidAt: "desc" } } },
     }),
   ]);
   const allowCustomDomain = tenantBilling?.plan?.allowCustomDomain ?? false;
@@ -36,7 +44,7 @@ export default async function ConfiguracionPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Configuración</h1>
 
-      <Tabs defaultValue="general">
+      <Tabs defaultValue={initialTab}>
         <TabsList className="w-full">
           <TabsTrigger value="general" className="flex-1">
             General

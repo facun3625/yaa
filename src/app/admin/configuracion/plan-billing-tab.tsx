@@ -1,10 +1,12 @@
 import type { BillingPayment, Plan, Tenant } from "@/generated/prisma/client";
 import { BILLING_STATUS_LABELS, BILLING_STATUS_COLORS } from "@/lib/billing-status";
+import { startPlanChangeRequest } from "./actions";
 
-type TenantWithBilling = Tenant & { plan: Plan | null; billingPayments: BillingPayment[] };
-
-const CHANGE_PLAN_EMAIL =
-  "mailto:hola@yaa.com.ar?subject=Quiero%20cambiar%20de%20plan&body=Hola%2C%20quiero%20cambiar%20el%20plan%20de%20mi%20tienda.";
+type TenantWithBilling = Tenant & {
+  plan: Plan | null;
+  requestedPlan: Plan | null;
+  billingPayments: BillingPayment[];
+};
 
 export function PlanBillingTab({ tenant }: { tenant: TenantWithBilling }) {
   const dateFormatter = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -40,12 +42,21 @@ export function PlanBillingTab({ tenant }: { tenant: TenantWithBilling }) {
         campo de "forma de pago" visible para el cliente, tiene que ser uno
         nuevo y separado de este. */}
 
-        <a
-          href={CHANGE_PLAN_EMAIL}
-          className="mt-4 inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          Quiero cambiar de plan
-        </a>
+        {tenant.requestedPlan ? (
+          <p className="mt-4 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+            Pediste pasar a <strong>{tenant.requestedPlan.name}</strong> — nuestro equipo lo va a confirmar y
+            aplicar en breve.
+          </p>
+        ) : (
+          <form action={startPlanChangeRequest}>
+            <button
+              type="submit"
+              className="mt-4 inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              Quiero cambiar de plan
+            </button>
+          </form>
+        )}
       </div>
 
       <div>

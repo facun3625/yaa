@@ -25,6 +25,24 @@ export async function setTenantPlan(tenantId: string, planId: string | null) {
   revalidateTenant(tenantId);
 }
 
+// El dueño de la tienda pide un plan desde /admin/configuracion (ver
+// requestedPlanId en el schema) — esto lo confirma: aplica el plan pedido
+// y limpia el pedido, en un solo paso.
+export async function applyPlanChangeRequest(tenantId: string, planId: string) {
+  await requireSuperAdmin();
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { planId, requestedPlanId: null, requestedPlanAt: null },
+  });
+  revalidateTenant(tenantId);
+}
+
+export async function dismissPlanChangeRequest(tenantId: string) {
+  await requireSuperAdmin();
+  await prisma.tenant.update({ where: { id: tenantId }, data: { requestedPlanId: null, requestedPlanAt: null } });
+  revalidateTenant(tenantId);
+}
+
 const BILLING_STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE", "SUSPENDED"] as const;
 
 export async function setBillingStatus(tenantId: string, status: (typeof BILLING_STATUSES)[number]) {

@@ -25,6 +25,7 @@ export default async function TenantDetailPage({
       include: {
         users: { where: { role: "ADMIN" } },
         plan: true,
+        requestedPlan: true,
         billingPayments: { orderBy: { paidAt: "desc" }, take: 10 },
         _count: { select: { products: true, orders: true } },
       },
@@ -105,6 +106,7 @@ export default async function TenantDetailPage({
         trialEndsAt={tenant.trialEndsAt?.toISOString() ?? null}
         nextBillingDate={tenant.nextBillingDate?.toISOString() ?? null}
         billingNotes={tenant.billingNotes}
+        requestedPlan={tenant.requestedPlan ? { id: tenant.requestedPlan.id, name: tenant.requestedPlan.name } : null}
         payments={tenant.billingPayments.map((p) => ({
           id: p.id,
           amount: Number(p.amount),

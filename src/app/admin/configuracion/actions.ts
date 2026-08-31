@@ -1,6 +1,8 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 
@@ -396,4 +398,24 @@ export async function removeCustomDomain() {
     data: { customDomain: null, customDomainToken: null, customDomainVerified: false },
   });
   revalidatePath("/admin/configuracion");
+}
+
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
+
+// El picker de planes vive en el dominio raíz (yaa.com.ar), no acá — y la
+// sesión del admin es host-only en SU subdominio, no viaja sola hasta ahí
+// (mismo motivo que el token de /registro/datos al crear la tienda). Este
+// token de un solo uso es el pase de ida; la vuelta no necesita nada
+// especial porque nunca tocamos la sesión de este subdominio, sigue viva
+// cuando vuelva.
+export async function startPlanChangeRequest() {
+  const { tenant } = await requireTenantAdmin();
+
+  const token = randomBytes(32).toString("hex");
+  await prisma.verificationToken.create({
+    data: { identifier: `plan-change:${tenant.id}`, token, expires: new Date(Date.now() + 10 * 60 * 1000) },
+  });
+
+  const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+  redirect(`${protocol}://${ROOT_DOMAIN}/cambiar-plan?token=${token}`);
 }
