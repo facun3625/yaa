@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { StoreSettings } from "@/lib/settings";
+import { ARGENTINA_PROVINCES } from "@/lib/argentina";
 import { removeStoreImage, updateStoreSettings } from "./actions";
 
 export function StoreSettingsForm({ settings }: { settings: StoreSettings }) {
@@ -39,6 +40,24 @@ export function StoreSettingsForm({ settings }: { settings: StoreSettings }) {
         <div className="flex flex-col gap-2">
           <Label htmlFor="address">Dirección</Label>
           <Input id="address" name="address" defaultValue={settings.address ?? ""} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="city">Ciudad</Label>
+          <Input id="city" name="city" defaultValue={settings.city ?? ""} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="province">Provincia</Label>
+          <select
+            id="province"
+            name="province"
+            defaultValue={settings.province ?? ""}
+            className="h-9 rounded-md border bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <option value="">Sin especificar</option>
+            {ARGENTINA_PROVINCES.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="phone">Teléfono</Label>

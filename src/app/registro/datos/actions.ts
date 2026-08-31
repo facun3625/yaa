@@ -23,6 +23,16 @@ const datosSchema = z.object({
   // Solo obligatorio si el usuario no tiene contraseña todavía (se registró
   // con Google) — ver comentario más abajo sobre por qué hace falta.
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional(),
+  // Todo esto es opcional a propósito — no queremos sumarle fricción al
+  // alta pidiendo datos que se pueden completar después. Teléfono es del
+  // dueño (User.phone); ciudad/provincia son de la tienda, de cara al
+  // público (Settings, igual que la dirección); rubro y "cómo nos
+  // conociste" son para la plataforma, no se le muestran a nadie más.
+  phone: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
+  businessCategory: z.string().optional(),
+  referralSource: z.string().optional(),
 });
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
@@ -39,6 +49,11 @@ export async function createTenantFromOnboarding(formData: FormData) {
     subdomain: (formData.get("subdomain") as string)?.trim().toLowerCase(),
     storeName: formData.get("storeName"),
     password: formData.get("password") || undefined,
+    phone: formData.get("phone") || undefined,
+    city: formData.get("city") || undefined,
+    province: formData.get("province") || undefined,
+    businessCategory: formData.get("businessCategory") || undefined,
+    referralSource: formData.get("referralSource") || undefined,
   });
 
   const existing = await prisma.tenant.findUnique({ where: { subdomain: parsed.subdomain } });
@@ -71,11 +86,22 @@ export async function createTenantFromOnboarding(formData: FormData) {
         billingStatus: "ACTIVE",
         nextBillingDate,
         referredByResellerId: reseller?.id,
+        businessCategory: parsed.businessCategory,
+        referralSource: parsed.referralSource,
       },
     });
     await tx.settings.create({
       data: { tenantId: tenant.id, key: "store_name", value: parsed.storeName },
     });
+    const extraSettings = [
+      parsed.city ? { key: "store_city", value: parsed.city } : null,
+      parsed.province ? { key: "store_province", value: parsed.province } : null,
+    ].filter((s) => s !== null);
+    if (extraSettings.length > 0) {
+      await tx.settings.createMany({
+        data: extraSettings.map((s) => ({ tenantId: tenant.id, key: s.key, value: s.value })),
+      });
+    }
     await tx.paymentMethodConfig.createMany({
       data: [
         { tenantId: tenant.id, type: "CASH_ON_DELIVERY", enabled: true },
@@ -103,6 +129,7 @@ export async function createTenantFromOnboarding(formData: FormData) {
         onboardingPaidAt: null,
         pendingReferralCode: null,
         ...(passwordHash ? { passwordHash } : {}),
+        ...(parsed.phone ? { phone: parsed.phone } : {}),
       },
     });
     await tx.account.updateMany({

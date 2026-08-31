@@ -19,6 +19,8 @@ import { generateDomainToken, verificationRecordName, verifyDomainTxtRecord } fr
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Ingresá el nombre del negocio"),
   address: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
   whatsapp: z.string().optional(),
@@ -71,6 +73,8 @@ export async function updateStoreSettings(formData: FormData) {
   const parsed = settingsSchema.parse({
     storeName: formData.get("storeName"),
     address: formData.get("address") || undefined,
+    city: formData.get("city") || undefined,
+    province: formData.get("province") || undefined,
     phone: formData.get("phone") || undefined,
     email: formData.get("email") || undefined,
     whatsapp: formData.get("whatsapp") || undefined,
@@ -86,6 +90,8 @@ export async function updateStoreSettings(formData: FormData) {
 
   await Promise.all([
     saveTextSetting(tenant.id, parsed.address, "store_address"),
+    saveTextSetting(tenant.id, parsed.city, "store_city"),
+    saveTextSetting(tenant.id, parsed.province, "store_province"),
     saveTextSetting(tenant.id, parsed.phone, "store_phone"),
     saveTextSetting(tenant.id, parsed.email, "store_email"),
     saveTextSetting(tenant.id, parsed.whatsapp, "store_whatsapp"),
