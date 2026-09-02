@@ -416,6 +416,7 @@ export function DateEditor({
             startDeleteTransition(async () => {
               try {
                 await deleteDeliveryDate(deliveryDate.id);
+                router.push("/admin/fechas");
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Error al borrar");
               }

@@ -228,7 +228,11 @@ export async function deleteDeliveryDate(id: string) {
   }
   await prisma.deliveryDate.delete({ where: { id, tenantId: tenant.id } });
   revalidatePath("/admin/fechas");
-  redirect("/admin/fechas");
+  // Sin redirect acá a propósito: quien llama (date-editor.tsx) lo envuelve
+  // en un try/catch que muestra cualquier error como toast — el throw
+  // interno que usa redirect() para funcionar caía en ese catch y se le
+  // mostraba al usuario como un error real ("NEXT_REDIRECT..."). La
+  // navegación después de borrar se hace del lado del cliente en su lugar.
 }
 
 // ---------- Modo de disponibilidad ----------

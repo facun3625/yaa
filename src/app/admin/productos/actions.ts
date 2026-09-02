@@ -65,19 +65,32 @@ const stockGroupSchema = z.object({
   defaultStockQuantity: z.coerce.number().int().nonnegative().nullable().optional(),
 });
 
+// StockGroup tiene @@unique([tenantId, name]) — sin este chequeo, crear o
+// renombrar a un nombre repetido tira la excepción cruda de Prisma, que en
+// producción Next.js redacta a un "Minified React error #441" sin
+// contenido útil para quien lo ve.
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
 export async function createStockGroup(formData: FormData) {
   const { tenant } = await requireTenantAdmin();
   const parsed = stockGroupSchema.parse({
     name: formData.get("name"),
     defaultStockQuantity: formData.get("defaultStockQuantity") || undefined,
   });
-  await prisma.stockGroup.create({
-    data: {
-      tenantId: tenant.id,
-      name: parsed.name,
-      defaultStockQuantity: parsed.defaultStockQuantity ?? null,
-    },
-  });
+  try {
+    await prisma.stockGroup.create({
+      data: {
+        tenantId: tenant.id,
+        name: parsed.name,
+        defaultStockQuantity: parsed.defaultStockQuantity ?? null,
+      },
+    });
+  } catch (e) {
+    if (isUniqueConstraintError(e)) throw new Error("Ya existe un grupo de stock con ese nombre");
+    throw e;
+  }
   revalidatePath("/admin/productos");
 }
 
@@ -87,10 +100,15 @@ export async function updateStockGroup(id: string, formData: FormData) {
     name: formData.get("name"),
     defaultStockQuantity: formData.get("defaultStockQuantity") || undefined,
   });
-  await prisma.stockGroup.update({
-    where: { id, tenantId: tenant.id },
-    data: { name: parsed.name, defaultStockQuantity: parsed.defaultStockQuantity ?? null },
-  });
+  try {
+    await prisma.stockGroup.update({
+      where: { id, tenantId: tenant.id },
+      data: { name: parsed.name, defaultStockQuantity: parsed.defaultStockQuantity ?? null },
+    });
+  } catch (e) {
+    if (isUniqueConstraintError(e)) throw new Error("Ya existe un grupo de stock con ese nombre");
+    throw e;
+  }
   revalidatePath("/admin/productos");
 }
 
