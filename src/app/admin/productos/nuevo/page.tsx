@@ -14,7 +14,10 @@ export default async function NewProductPage() {
       orderBy: { name: "asc" },
     }),
   ]);
-  const sharedStockGroups = stockGroups.filter((g) => g._count.variants > 1);
+  // Sin filtrar por cantidad de miembros: un grupo recién creado desde
+  // "Grupos de stock" arranca en 0 y nunca podría elegirse la primera vez
+  // si acá exigiéramos 2+ — quedaba imposible de usar.
+  const sharedStockGroups = stockGroups;
 
   return (
     <div className="flex flex-col gap-4">
