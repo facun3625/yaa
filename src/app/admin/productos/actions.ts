@@ -132,7 +132,7 @@ async function ensureDedicatedStockGroup(tx: Pick<PrismaClient, "stockGroup">, t
   let attempt = 1;
   for (;;) {
     try {
-      const group = await tx.stockGroup.create({ data: { tenantId, name } });
+      const group = await tx.stockGroup.create({ data: { tenantId, name, isIndividual: true } });
       return group.id;
     } catch {
       attempt += 1;

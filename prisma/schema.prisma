@@ -476,6 +476,14 @@ model StockGroup {
   tenantId             String
   name                 String
   defaultStockQuantity Int?
+  // true cuando lo creó el sistema solo, al vuelo, para el pozo propio de
+  // una variante ("__solo__"/"__siblings__" en resolveVariantStockGroupId)
+  // — no algo que el dueño de la tienda armó a mano en "Grupos de stock".
+  // Sirve para ocultarlos del selector "Compartir con...": antes ese
+  // selector filtraba por cantidad de miembros (2+), pero eso hacía que un
+  // grupo recién creado a mano, todavía con 0 miembros, tampoco apareciera
+  // — imposible de elegir la primera vez.
+  isIndividual         Boolean @default(false)
 
   tenant         Tenant            @relation(fields: [tenantId], references: [id])
   variants       ProductVariant[]

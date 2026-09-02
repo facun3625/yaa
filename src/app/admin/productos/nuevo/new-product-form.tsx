@@ -436,7 +436,10 @@ function VariantStockControl({
         </button>
         <button
           type="button"
-          onClick={() => onChange(groups.some((g) => g.id === value) ? value : (groups[0]?.id ?? "__solo__"))}
+          // No elige el primero de la lista solo — deja el selector vacío
+          // ("Elegí un grupo") para que sea una elección explícita, no un
+          // default que se puede guardar sin haberlo notado.
+          onClick={() => onChange(groups.some((g) => g.id === value) ? value : "")}
           disabled={groups.length === 0}
           className={cn(
             "flex-1 rounded-md border px-2 py-1 text-center text-[0.65rem] font-medium transition-colors disabled:opacity-40",

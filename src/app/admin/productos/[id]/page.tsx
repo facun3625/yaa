@@ -32,10 +32,10 @@ export default async function EditProductPage({
 
   if (!product) notFound();
 
-  // Sin filtrar por cantidad de miembros: un grupo recién creado desde
-  // "Grupos de stock" arranca en 0 y nunca podría elegirse la primera vez
-  // si acá exigiéramos 2+ — quedaba imposible de usar.
-  const sharedStockGroups = stockGroups;
+  // isIndividual, no cantidad de miembros: un grupo creado a mano desde
+  // "Grupos de stock" arranca en 0 miembros, así que filtrar por 2+ lo
+  // dejaba imposible de elegir la primera vez.
+  const sharedStockGroups = stockGroups.filter((g) => !g.isIndividual);
 
   return (
     <ProductEditor
