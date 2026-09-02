@@ -155,7 +155,12 @@ export function ProductEditor({
 
   const [variants, setVariants] = useState<Variant[]>(() => variantsFromProduct(product));
   const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
-  const [expandedVariant, setExpandedVariant] = useState<string | null>(null);
+  // Arranca con todas las variantes desplegadas (SKU + Stock a la vista) en
+  // vez de tener que tocar la flechita en cada una — quedaba escondido y
+  // llevó a pensar que "Compartir stock" no existía.
+  const [expandedVariants, setExpandedVariants] = useState<Set<string>>(
+    () => new Set(variants.map((v) => v.key)),
+  );
 
   const [images, setImages] = useState<EditorImage[]>(() => imagesFromProduct(product));
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
@@ -225,7 +230,7 @@ export function ProductEditor({
         const price = Number(v.price);
         if (!price || price <= 0) {
           toast.error("Todas las variantes necesitan un precio mayor a 0");
-          setExpandedVariant(v.key);
+          setExpandedVariants((prev) => new Set(prev).add(v.key));
           return;
         }
       }
@@ -322,7 +327,7 @@ export function ProductEditor({
       ...prev,
       { key, gusto: "", tamano: "", sku: "", price: "", active: true, stockGroupId: siblingGroupId },
     ]);
-    setExpandedVariant(key);
+    setExpandedVariants((prev) => new Set(prev).add(key));
   }
 
   function removeVariant(v: Variant) {
@@ -497,9 +502,16 @@ export function ProductEditor({
                   index={i}
                   count={variants.length}
                   hidePrice={contactToBuy}
-                  expanded={expandedVariant === v.key}
+                  expanded={expandedVariants.has(v.key)}
                   sharedStockGroups={stockGroups}
-                  onToggleExpand={() => setExpandedVariant((cur) => (cur === v.key ? null : v.key))}
+                  onToggleExpand={() =>
+                    setExpandedVariants((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(v.key)) next.delete(v.key);
+                      else next.add(v.key);
+                      return next;
+                    })
+                  }
                   onChange={(patch) =>
                     setVariants((prev) => prev.map((x) => (x.key === v.key ? { ...x, ...patch } : x)))
                   }
