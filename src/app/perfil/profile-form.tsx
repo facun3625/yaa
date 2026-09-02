@@ -59,6 +59,14 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
         if (file) formData.set("photo", file);
         const res = await updateProfile(formData);
         await update({ name, image: res?.image ?? user.image });
+        // La vista previa venía de URL.createObjectURL — una URL temporal
+        // que solo existe mientras dure esta pestaña. Sin este paso, al
+        // recargar la página esa URL ya no resuelve a nada y el navegador
+        // muestra el texto alternativo (el nombre) en vez de la foto.
+        if (res?.image) {
+          if (file) URL.revokeObjectURL(preview!);
+          setPreview(res.image);
+        }
         setFile(null);
         toast.success("Perfil actualizado");
       } catch (err) {
