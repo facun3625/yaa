@@ -1,5 +1,7 @@
+import { notFound } from "next/navigation";
+
 import { prisma } from "@/lib/prisma";
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import {
   COUNTED_ORDER_STATUSES,
   type CustomerStatsRow,
@@ -11,7 +13,8 @@ import { StatsDashboard } from "./stats-dashboard";
 const deliveryDateLabelFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 
 export default async function EstadisticasPage() {
-  const { tenant } = await requireTenantAdmin();
+  const { tenant, features } = await requireTenantAdminWithPlan();
+  if (!features.allowStats) notFound();
 
   const [orders, customers, deliveryDates] = await Promise.all([
     prisma.order.findMany({

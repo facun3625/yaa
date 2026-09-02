@@ -1,8 +1,6 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 
@@ -406,22 +404,47 @@ export async function removeCustomDomain() {
   revalidatePath("/admin/configuracion");
 }
 
-const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
+// ---------- SEO (solo tiendas con dominio propio verificado) ----------
 
-// El picker de planes vive en el dominio raíz (yaa.com.ar), no acá — y la
-// sesión del admin es host-only en SU subdominio, no viaja sola hasta ahí
-// (mismo motivo que el token de /registro/datos al crear la tienda). Este
-// token de un solo uso es el pase de ida; la vuelta no necesita nada
-// especial porque nunca tocamos la sesión de este subdominio, sigue viva
-// cuando vuelva.
-export async function startPlanChangeRequest() {
+const seoSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+});
+
+// Mismo criterio que assertCustomDomainAllowed: no alcanza con que el plan
+// lo permita, la tienda tiene que tener SU dominio ya verificado — el SEO
+// personalizado apunta a esa dirección, no tiene sentido antes de eso.
+async function assertSeoAllowed(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { plan: true } });
+  if (!tenant?.plan?.allowCustomDomain) {
+    throw new Error("Tu plan actual no incluye dominio propio");
+  }
+  if (!tenant.customDomainVerified) {
+    throw new Error("Primero verificá tu dominio propio");
+  }
+}
+
+export async function updateSeoSettings(formData: FormData) {
   const { tenant } = await requireTenantAdmin();
+  await assertSeoAllowed(tenant.id);
 
-  const token = randomBytes(32).toString("hex");
-  await prisma.verificationToken.create({
-    data: { identifier: `plan-change:${tenant.id}`, token, expires: new Date(Date.now() + 10 * 60 * 1000) },
+  const parsed = seoSchema.parse({
+    title: formData.get("title") || undefined,
+    description: formData.get("description") || undefined,
   });
 
-  const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
-  redirect(`${protocol}://${ROOT_DOMAIN}/cambiar-plan?token=${token}`);
+  await Promise.all([
+    saveTextSetting(tenant.id, parsed.title, "seo_title"),
+    saveTextSetting(tenant.id, parsed.description, "seo_description"),
+  ]);
+
+  await saveImageSetting(tenant.id, formData.get("ogImage") as File | null, "seo_og_image_url");
+
+  revalidatePath("/", "layout");
+}
+
+export async function removeSeoImage() {
+  const { tenant } = await requireTenantAdmin();
+  await prisma.settings.deleteMany({ where: { tenantId: tenant.id, key: "seo_og_image_url" } });
+  revalidatePath("/", "layout");
 }

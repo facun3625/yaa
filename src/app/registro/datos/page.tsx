@@ -4,11 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireOnboardingUser } from "@/lib/require-onboarding";
 import { ARGENTINA_PROVINCES, BUSINESS_CATEGORIES, REFERRAL_SOURCES } from "@/lib/argentina";
 import { OnboardingSteps } from "../onboarding-steps";
+import { OnboardingCredit } from "../onboarding-brand";
 import { createTenantFromOnboarding } from "./actions";
+import { SubdomainField } from "./subdomain-field";
+import { OnboardingSelect } from "./onboarding-select";
 
-const selectClass =
-  "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#ff5a36] focus:ring-2 focus:ring-[#ff5a36]/20";
-const inputClass = selectClass;
+const inputClass =
+  "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-[#ff5a36] focus:ring-2 focus:ring-[#ff5a36]/20";
+const fieldClass = "grid gap-1.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:items-start sm:gap-3 [&>label]:sm:pt-3 [&>label]:sm:text-right";
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
@@ -20,90 +23,77 @@ export default async function DatosPage() {
     include: { pendingPlan: true },
   });
   if (!user?.pendingPlan) redirect("/registro/plan");
-  if (!user.onboardingPaidAt) redirect("/registro/pago");
 
   return (
     <main className="min-h-screen bg-[#030712] px-4 py-12 text-white">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-        <OnboardingSteps current={4} />
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+        <OnboardingSteps current={3} />
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-7">
           <h1 className="text-xl font-bold">Ya casi — armemos tu tienda</h1>
-          <p className="mt-1 text-sm text-white/50">Plan {user.pendingPlan.name} confirmado. Con esto queda lista.</p>
+          <p className="mt-1 text-sm text-white/50">
+            Plan {user.pendingPlan.name}.{" "}
+            {user.pendingPlan.trialDays > 0
+              ? `Incluye ${user.pendingPlan.trialDays} días de prueba desde que creás la tienda. La fecha exacta del primer pago quedará registrada en tu panel.`
+              : "Este plan no incluye período de prueba; para recibir pedidos deberás activar la suscripción desde tu panel."}
+          </p>
 
-          <form action={createTenantFromOnboarding} className="mt-6 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
+          <form action={createTenantFromOnboarding} className="mt-5 grid gap-x-5 gap-y-3 md:grid-cols-2">
+            <div className={fieldClass}>
               <label htmlFor="storeName" className="text-xs font-medium text-white/60">Nombre del negocio</label>
               <input
                 id="storeName"
                 name="storeName"
                 required
-                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#ff5a36] focus:ring-2 focus:ring-[#ff5a36]/20"
+                className={inputClass}
               />
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className={fieldClass}>
               <label htmlFor="subdomain" className="text-xs font-medium text-white/60">Subdominio</label>
-              <div className="flex items-center overflow-hidden rounded-xl border border-white/15 bg-white/5 focus-within:border-[#ff5a36] focus-within:ring-2 focus-within:ring-[#ff5a36]/20">
-                <input
-                  id="subdomain"
-                  name="subdomain"
-                  required
-                  placeholder="mi-negocio"
-                  pattern="[a-z0-9\-]+"
-                  className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none"
-                />
-                <span className="shrink-0 pr-4 text-sm text-white/40">.{ROOT_DOMAIN}</span>
-              </div>
+              <SubdomainField rootDomain={ROOT_DOMAIN} />
             </div>
 
-            <div className="mt-1 flex flex-col gap-4 border-t border-white/10 pt-4">
+            <div className="mt-1 flex flex-col gap-3 border-t border-white/10 pt-3 md:col-span-2">
               <p className="text-xs font-medium text-white/40">Datos opcionales — los podés completar después</p>
 
-              <div className="flex flex-col gap-2">
-                <label htmlFor="phone" className="text-xs font-medium text-white/60">Tu teléfono</label>
-                <input id="phone" name="phone" type="tel" placeholder="+54 9 11 ..." className={inputClass} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-2">
+              <div className="grid gap-x-5 gap-y-3 md:grid-cols-2">
+                <div className={fieldClass}>
+                  <label htmlFor="phone" className="text-xs font-medium text-white/60">Tu teléfono</label>
+                  <input id="phone" name="phone" type="tel" placeholder="+54 9 11 ..." className={inputClass} />
+                </div>
+                <div className={fieldClass}>
                   <label htmlFor="city" className="text-xs font-medium text-white/60">Ciudad</label>
                   <input id="city" name="city" className={inputClass} />
                 </div>
-                <div className="flex flex-col gap-2">
+
+                <div className={fieldClass}>
                   <label htmlFor="province" className="text-xs font-medium text-white/60">Provincia</label>
-                  <select id="province" name="province" defaultValue="" className={selectClass}>
-                    <option value="" disabled>Elegir</option>
-                    {ARGENTINA_PROVINCES.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                  <OnboardingSelect id="province" name="province" options={ARGENTINA_PROVINCES} />
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-2">
-                <label htmlFor="businessCategory" className="text-xs font-medium text-white/60">Rubro</label>
-                <select id="businessCategory" name="businessCategory" defaultValue="" className={selectClass}>
-                  <option value="" disabled>Elegir</option>
-                  {BUSINESS_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+                <div className={fieldClass}>
+                  <label htmlFor="businessCategory" className="text-xs font-medium text-white/60">Rubro</label>
+                  <OnboardingSelect id="businessCategory" name="businessCategory" options={BUSINESS_CATEGORIES} />
+                </div>
 
-              <div className="flex flex-col gap-2">
-                <label htmlFor="referralSource" className="text-xs font-medium text-white/60">¿Cómo nos conociste?</label>
-                <select id="referralSource" name="referralSource" defaultValue="" className={selectClass}>
-                  <option value="" disabled>Elegir</option>
-                  {REFERRAL_SOURCES.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
+                <div className={`${fieldClass} md:col-span-2 md:grid-cols-[120px_minmax(0,1fr)]`}>
+                  <label htmlFor="referralSource" className="text-xs font-medium text-white/60">¿Cómo nos conociste?</label>
+                  <OnboardingSelect id="referralSource" name="referralSource" options={REFERRAL_SOURCES} />
+                </div>
+
+                <div className={`${fieldClass} md:col-span-2 md:grid-cols-[120px_minmax(0,1fr)]`}>
+                  <label htmlFor="promotionCode" className="text-xs font-medium text-white/60">Código promocional</label>
+                  <div>
+                    <input id="promotionCode" name="promotionCode" maxLength={30} placeholder="Opcional" className={`${inputClass} uppercase`} />
+                    <p className="mt-1 text-xs text-white/35">Si tenés uno, reemplaza los días de prueba por el período bonificado.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {!user.passwordHash && (
-              <div className="flex flex-col gap-2">
+              <div className={`${fieldClass} md:col-span-2 md:grid-cols-[120px_minmax(0,1fr)]`}>
                 <label htmlFor="password" className="text-xs font-medium text-white/60">
                   Definí una contraseña <span className="font-normal text-white/40">(opcional)</span>
                 </label>
@@ -113,20 +103,21 @@ export default async function DatosPage() {
                   type="password"
                   minLength={6}
                   placeholder="Mínimo 6 caracteres — dejalo vacío para entrar solo con Google"
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#ff5a36] focus:ring-2 focus:ring-[#ff5a36]/20"
+                  className={inputClass}
                 />
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-white/40 sm:col-start-2">
                   Te registraste con Google — con eso alcanza para entrar a tu panel. Si además querés poder entrar
                   con contraseña, definila acá.
                 </p>
               </div>
             )}
 
-            <button type="submit" className="yaa-btn yaa-btn-primary mt-2 w-full justify-center">
+            <button type="submit" className="yaa-btn yaa-btn-primary mt-2 w-full justify-center md:col-span-2">
               Crear mi tienda
             </button>
           </form>
         </div>
+        <OnboardingCredit />
       </div>
     </main>
   );

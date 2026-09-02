@@ -34,10 +34,10 @@ export default async function NewTenantPage() {
             defaultValue=""
             className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
           >
-            <option value="">Sin plan (arranca en trial de 14 días)</option>
+            <option value="">Sin plan (no recibe pedidos hasta asignarle uno)</option>
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} · {formatPrice(Number(p.priceMonthly))}/mes
+                {p.name} · {formatPrice(Number(p.priceMonthly))}/mes · {p.trialDays > 0 ? `${p.trialDays} días de prueba` : "sin prueba"}
               </option>
             ))}
           </select>

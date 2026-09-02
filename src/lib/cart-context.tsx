@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
 
 export type CartItem = {
   productVariantId: string;
@@ -35,8 +35,15 @@ type CartContextValue = {
   closeCart: () => void;
 };
 
-const STORAGE_KEY = "pedidos-cart";
+const STORAGE_KEY_PREFIX = "pedidos-cart";
 const emptyState: CartState = { deliveryDateId: null, items: [] };
+
+// El subdominio de una tienda puede reasignarse a un Tenant distinto (ej: se
+// borró y se creó una tienda nueva con el mismo nombre) — como el storage es
+// por origen del navegador, sin esto el carrito viejo reaparecería con
+// productos que ya no existen. Se ata al id real del tenant, no al
+// subdominio.
+let activeStorageKey = STORAGE_KEY_PREFIX;
 
 // Suma la cantidad ya reservada en el carrito por otras líneas del mismo
 // grupo de stock compartido (excluyendo, opcionalmente, una línea puntual).
@@ -79,15 +86,19 @@ const listeners = new Set<() => void>();
 
 function readFromStorage(): CartState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(activeStorageKey);
     return raw ? JSON.parse(raw) : emptyState;
   } catch {
     return emptyState;
   }
 }
 
-function getSnapshot() {
-  if (!storeInitialized) {
+// El cambio de tenant (o la primera carga) se resuelve acá adentro, no en el
+// cuerpo de CartProvider — mutar estado de módulo directamente durante el
+// render del componente rompe las reglas de pureza de React.
+function getSnapshotForKey(key: string) {
+  if (!storeInitialized || key !== activeStorageKey) {
+    activeStorageKey = key;
     cartState = readFromStorage();
     storeInitialized = true;
   }
@@ -107,7 +118,7 @@ function setCartState(next: CartState) {
   cartState = next;
   storeInitialized = true;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(activeStorageKey, JSON.stringify(next));
   } catch {
     // ignore write failures (private mode, quota)
   }
@@ -116,7 +127,9 @@ function setCartState(next: CartState) {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export function CartProvider({ tenantId, children }: { tenantId: string; children: React.ReactNode }) {
+  const key = `${STORAGE_KEY_PREFIX}:${tenantId}`;
+  const getSnapshot = useCallback(() => getSnapshotForKey(key), [key]);
   const cart = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [isCartOpen, setIsCartOpen] = useState(false);
 

@@ -2,8 +2,10 @@ import Image from "next/image";
 import { ArrowRight, BarChart3, Bot, CalendarDays, Check, ClipboardList, Handshake, Headphones, PackageOpen, Pizza, ShieldCheck, Sparkles, Store, Truck, Utensils, Zap } from "lucide-react";
 import { YaaPublicFooter } from "@/components/marketing/yaa-public-footer";
 import { YaaPublicNav } from "@/components/marketing/yaa-public-nav";
+import { AnchorScrollLink } from "@/components/marketing/anchor-scroll-link";
 import { YaaReveal } from "@/components/marketing/yaa-reveal";
 import { YaaFaqList } from "@/components/marketing/yaa-faq-list";
+import { YaaPlans, type PublicPlan } from "@/components/marketing/yaa-plans";
 
 const contactHref = "mailto:hola@yaa.com.ar?subject=Quiero%20mi%20tienda%20online%20con%20YAA";
 const signupHref = "/registro";
@@ -15,33 +17,6 @@ const features = [
   { icon: CalendarDays, title: "Vendé todos los días o por fecha", description: "Configurá horarios semanales o abrí ventas puntuales con fecha, cupos y cierre de pedidos." },
   { icon: Truck, title: "Delivery, retiro y pagos", description: "Ofrecé entrega a domicilio o retiro y cobrá en efectivo, por transferencia, Mercado Pago o Payway." },
   { icon: BarChart3, title: "Números para decidir mejor", description: "Consultá ventas, productos destacados, costos y resultados por período o fecha de entrega." },
-];
-
-const plans = [
-  {
-    name: "Esencial",
-    description: "Para empezar a recibir pedidos online de forma profesional.",
-    monthly: "$ 14.900",
-    yearly: "$ 149.000 al año",
-    featured: false,
-    features: ["Tienda y pedidos ilimitados", "1 usuario administrador", "Catálogo con fotos y variantes", "Efectivo, transferencia, Mercado Pago y Payway", "Delivery, retiro y gestión de clientes"],
-  },
-  {
-    name: "Negocio",
-    description: "Para organizar una operación que ya está creciendo.",
-    monthly: "$ 24.900",
-    yearly: "$ 249.000 al año",
-    featured: true,
-    features: ["Todo lo incluido en Esencial", "Hasta 3 administradores", "Stock individual y compartido", "Ventas programadas y cupos", "Cupones, puntos y estadísticas"],
-  },
-  {
-    name: "Pro",
-    description: "Para negocios con más equipo, servicios y automatización.",
-    monthly: "$ 39.900",
-    yearly: "$ 399.000 al año",
-    featured: false,
-    features: ["Todo lo incluido en Negocio", "Administradores ilimitados", "Servicios y presupuestos", "Costos y resultados avanzados", "Avisos por email y Telegram"],
-  },
 ];
 
 const portfolio = [
@@ -73,11 +48,37 @@ const faqs = [
   ["¿Necesito instalar algo?", "No. Tu tienda y el panel funcionan online desde computadora, tablet o celular. No necesitás servidores, técnicos ni equipos especiales."],
   ["¿Cómo reciben los pedidos mis clientes?", "Compartís el enlace de tu tienda. Tus clientes eligen productos, entrega y forma de pago; vos recibís el pedido completo y lo gestionás desde el panel."],
   ["¿Puedo cobrar como trabajo actualmente?", "Sí. Podés ofrecer efectivo, transferencia, Mercado Pago o Payway y configurar delivery o retiro según tu operación."],
-  ["¿Qué pasa cuando terminan los 10 días?", "Elegís si querés continuar con un plan. Antes de confirmar vas a ver claramente su precio y condiciones. No cobramos comisiones sobre tus ventas."],
+  ["¿Puedo probar YAA antes de contratar?", "Cuando un plan ofrece un período de prueba, lo vas a ver claramente antes de elegirlo. Su duración puede variar según el plan o la promoción vigente."],
   ["¿Me ayudan a poner la tienda en marcha?", "Sí. Te acompañamos para configurar lo esencial y que puedas publicar tu catálogo sin depender de conocimientos técnicos."],
 ];
 
-export function YaaLanding() {
+type ResellerSettings = { activationBonusAmount: number; activationBonusDays: number };
+type ResellerTier = { minActiveStores: number; percent: number };
+
+const priceFormatter = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+
+export function YaaLanding({
+  plans,
+  resellerSettings,
+  resellerTiers,
+}: {
+  plans: PublicPlan[];
+  resellerSettings: ResellerSettings;
+  resellerTiers: ResellerTier[];
+}) {
+  // Mismo criterio que YaaPlans: el plan marcado como "más elegido", o el
+  // del medio si todavía no se marcó ninguno.
+  const featuredPlan = plans.find((p) => p.featured) ?? plans[Math.min(1, plans.length - 1)] ?? null;
+  const minPercent = resellerTiers[0]?.percent ?? 0;
+  const maxPercent = resellerTiers.length ? resellerTiers[resellerTiers.length - 1].percent : minPercent;
+  // El ejemplo del titular usa el segundo escalón (el primer salto real de
+  // comisión) — con un solo escalón configurado, cae al mismo que minPercent.
+  const exampleTier = resellerTiers[1] ?? resellerTiers[0] ?? null;
+  const exampleStores = Math.max(exampleTier?.minActiveStores ?? 1, 1);
+  const exampleMonthly = featuredPlan ? exampleStores * featuredPlan.priceMonthly * ((exampleTier?.percent ?? minPercent) / 100) : 0;
+  const growthTiers = resellerTiers.slice(1);
+  const bonusAmount = resellerSettings.activationBonusAmount;
+
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#1d1713]">
       <YaaPublicNav />
@@ -91,10 +92,10 @@ export function YaaLanding() {
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/60">Publicá tu menú o catálogo, compartí tu enlace y recibí pedidos listos para preparar, retirar o entregar. Sin instalaciones y sin pagar una comisión por cada venta.</p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href={signupHref} className="yaa-btn yaa-btn-primary h-12 px-6 text-base shadow-lg shadow-[#ff5a36]/20">Probar 10 días gratis <ArrowRight className="size-[18px]" /></a>
-              <a href="#funcionalidades" className="yaa-btn yaa-btn-secondary h-12 px-6 text-base">Ver cómo funciona</a>
+              <a href={signupHref} className="yaa-btn yaa-btn-primary h-12 px-6 text-base shadow-lg shadow-[#ff5a36]/20">Creá tu tienda <ArrowRight className="size-[18px]" /></a>
+              <AnchorScrollLink id="funcionalidades" className="yaa-btn yaa-btn-secondary h-12 px-6 text-base">Ver cómo funciona</AnchorScrollLink>
             </div>
-            <p className="mt-4 flex items-center gap-2 text-xs font-medium text-white/50"><Check className="size-4 text-[#ff7658]" />10 días para probar · Sin instalaciones · Cancelás cuando quieras</p>
+            <p className="mt-4 flex items-center gap-2 text-xs font-medium text-white/50"><Check className="size-4 text-[#ff7658]" />Sin instalaciones · 0% de comisión por venta</p>
 
             <div className="mt-14 flex flex-wrap gap-x-10 gap-y-6">
               <div><p className="text-2xl font-extrabold">Tu menú</p><p className="mt-1 text-xs text-white/45">siempre disponible</p></div>
@@ -117,7 +118,7 @@ export function YaaLanding() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-14 md:py-16">
+      <section className="mx-auto max-w-6xl px-6 pb-5 pt-10 md:pb-6 md:pt-12">
         <YaaReveal direction="left">
           <div className="grid gap-8 rounded-3xl border border-black/10 bg-white p-6 shadow-[0_18px_50px_rgba(29,23,19,.06)] md:grid-cols-[220px_1fr] md:items-center md:p-8">
           <div>
@@ -134,7 +135,7 @@ export function YaaLanding() {
         </YaaReveal>
       </section>
 
-      <section id="como-funciona" className="mx-auto max-w-6xl scroll-mt-20 px-6 py-20">
+      <section id="como-funciona" className="mx-auto max-w-6xl scroll-mt-20 px-6 pb-16 pt-8 md:pb-20 md:pt-10">
         <div className="mb-10 max-w-3xl">
           <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-[#ff5a36]">Cómo funciona</p>
           <h2 className="text-3xl font-extrabold tracking-tight">Del menú a la entrega, todo conectado</h2>
@@ -241,26 +242,10 @@ export function YaaLanding() {
         <div className="mb-10 text-center">
           <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-[#ff5a36]">Precios</p>
           <h2 className="text-3xl font-extrabold tracking-tight">Elegí cómo querés hacer crecer tu negocio</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-black/50">Todos los planes incluyen 10 días de prueba y 0% de comisión por venta. En el pago anual abonás diez meses y usás YAA durante doce.</p>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-black/50">Todos los planes mantienen el 0% de comisión por venta. Las pruebas y promociones disponibles se informan al momento de elegir.</p>
         </div>
 
-        <div className="grid items-start gap-5 md:grid-cols-3">
-          {plans.map((plan) => (
-            <YaaReveal key={plan.name} direction={plan.featured ? "up" : plans[0] === plan ? "left" : "right"} delay={plans.indexOf(plan) * 90}>
-              <article className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 shadow-[0_14px_40px_rgba(29,23,19,.06)] ${plan.featured ? "border-[#ff5a36]" : "border-black/10"}`}>
-                {plan.featured && <span className="absolute -top-3 left-6 rounded-full bg-[#ff5a36] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">Más elegido</span>}
-                <h3 className="text-lg font-bold">{plan.name}</h3>
-                <p className="mt-1 min-h-10 text-xs leading-relaxed text-black/45">{plan.description}</p>
-                <div className="mt-5 flex items-end gap-1"><span className="text-3xl font-black tracking-tight">{plan.monthly}</span><span className="pb-1 text-xs text-black/45">/mes</span></div>
-                <p className="mt-1 text-xs font-medium text-[#ff7658]">o {plan.yearly}</p>
-                <ul className="mt-6 flex flex-col gap-3 border-t border-black/10 pt-5">
-                  {plan.features.map((feature) => <li key={feature} className="flex items-start gap-2 text-xs text-black/65"><Check className="mt-0.5 size-3.5 shrink-0 text-[#e84220]" />{feature}</li>)}
-                </ul>
-                <a href={signupHref} className={`yaa-btn mt-6 w-full justify-center ${plan.featured ? "yaa-btn-primary" : "border-black/15! bg-[#1d1713]! text-white hover:bg-black!"}`}>Probar 10 días gratis</a>
-              </article>
-            </YaaReveal>
-          ))}
-        </div>
+        <YaaReveal direction="up"><YaaPlans plans={plans} /></YaaReveal>
 
         <div className="mt-8 flex items-start gap-4 rounded-xl border border-black/10 bg-white p-5">
           <Bot className="mt-0.5 size-5 shrink-0 text-[#e84220]" />
@@ -289,15 +274,17 @@ export function YaaLanding() {
               <h2 className="mt-6 max-w-3xl text-5xl font-black leading-[.98] tracking-[-.05em] md:text-7xl">Convertí tus contactos en un ingreso recurrente.</h2>
               <p className="mt-6 max-w-2xl text-lg font-medium leading-relaxed text-white/85">Presentá YAA a locales gastronómicos y negocios de cercanía. Ganás al activarlos y volvés a ganar cada vez que renuevan.</p>
 
-              <div className="mt-8 inline-flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-[#ffd85a] px-5 py-4 text-[#1d1713] shadow-[6px_6px_0_#0d3b3b]">
-                <span className="text-3xl font-black">$74.700/mes</span>
-                <span className="max-w-44 text-xs font-bold leading-snug">estimados con 15 clientes activos en Plan Negocio</span>
-              </div>
+              {featuredPlan && exampleMonthly > 0 && (
+                <div className="mt-8 inline-flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-[#ffd85a] px-5 py-4 text-[#1d1713] shadow-[6px_6px_0_#0d3b3b]">
+                  <span className="text-3xl font-black">{priceFormatter.format(exampleMonthly)}/mes</span>
+                  <span className="max-w-44 text-xs font-bold leading-snug">estimados con {exampleStores} clientes activos en Plan {featuredPlan.name}</span>
+                </div>
+              )}
 
               <div className="mt-10 grid max-w-3xl grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/30 bg-white/30 sm:grid-cols-3">
-                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">1 mes</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">de bono por activación</p></div>
-                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">15%</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">recurrente inicial</p></div>
-                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">25%</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">al crecer tu cartera</p></div>
+                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">{bonusAmount > 0 ? priceFormatter.format(bonusAmount) : "Bono"}</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">de bono por activación</p></div>
+                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">{minPercent}%</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">recurrente inicial</p></div>
+                <div className="bg-[#ff5a36] p-6"><p className="text-4xl font-black">{maxPercent}%</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-white/70">al crecer tu cartera</p></div>
               </div>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -311,9 +298,13 @@ export function YaaLanding() {
               <h3 className="mt-3 text-xl font-extrabold">Claro desde el primer cliente</h3>
               <ul className="mt-6 flex flex-col gap-4">
                 {[
-                  "15% sobre cada suscripción efectivamente cobrada.",
-                  "20% desde 15 clientes activos y 25% desde 40.",
-                  "Un mes de bono cuando el cliente completa 60 días pagos.",
+                  `${minPercent}% sobre cada suscripción efectivamente cobrada.`,
+                  growthTiers.length > 0
+                    ? growthTiers.map((t) => `${t.percent}% desde ${t.minActiveStores} clientes activos`).join(" y ") + "."
+                    : "Un único porcentaje fijo por ahora.",
+                  bonusAmount > 0
+                    ? `Bono de ${priceFormatter.format(bonusAmount)} cuando el cliente completa ${resellerSettings.activationBonusDays} días pagos.`
+                    : `Bono de activación cuando el cliente completa ${resellerSettings.activationBonusDays} días pagos.`,
                   "El pago anual genera comisión anual; el mensual, en cada renovación.",
                   "La atribución continúa mientras el cliente permanezca activo y pagado.",
                   "Descuentos, devoluciones, impuestos y contracargos no generan comisión.",

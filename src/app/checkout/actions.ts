@@ -12,6 +12,7 @@ import { logGroupStockMovement } from "@/lib/stock-movements";
 import { awardPointsForOrder } from "@/lib/points";
 import { getTenantMercadoPagoCredentials } from "@/lib/mercadopago-config";
 import { createPreference } from "@/lib/mercadopago";
+import { canTenantReceiveOrders } from "@/lib/billing-status";
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
@@ -41,6 +42,7 @@ const placeOrderSchema = z
 export async function getPickupSlotsForCheckout(deliveryDateId: string) {
   const tenant = await getCurrentTenant();
   if (!tenant) return [];
+  if (!canTenantReceiveOrders(tenant)) return [];
 
   const deliveryDate = await prisma.deliveryDate.findUnique({
     where: { id: deliveryDateId, tenantId: tenant.id },
@@ -62,6 +64,7 @@ function computeCouponDiscount(
 export async function validateCoupon(rawCode: string, subtotal: number) {
   const tenant = await getCurrentTenant();
   if (!tenant) throw new Error("Tienda no encontrada");
+  if (!canTenantReceiveOrders(tenant)) throw new Error("La tienda no está recibiendo pedidos hasta regularizar su suscripción");
 
   const code = rawCode.trim().toUpperCase();
   if (!code) throw new Error("Ingresá un código");
@@ -92,6 +95,9 @@ export async function placeOrder(formData: FormData) {
 
   const tenant = await getCurrentTenant();
   if (!tenant) throw new Error("Tienda no encontrada");
+  if (!canTenantReceiveOrders(tenant)) {
+    throw new Error("La tienda no está recibiendo pedidos hasta regularizar su suscripción");
+  }
   if (session?.user && session.user.tenantId !== tenant.id) throw new Error("No autorizado");
 
   let items: unknown;
@@ -202,6 +208,17 @@ export async function placeOrder(formData: FormData) {
         : "PAYMENT_REVIEW";
 
   const order = await prisma.$transaction(async (tx) => {
+    // Revalidamos dentro de la misma transacción que crea el pedido. Así un
+    // checkout que quedó abierto no puede confirmar una compra si la prueba
+    // venció entre la carga de la página y el click final.
+    const currentBilling = await tx.tenant.findUnique({
+      where: { id: tenant.id },
+      select: { status: true, billingStatus: true, trialEndsAt: true },
+    });
+    if (!currentBilling || !canTenantReceiveOrders(currentBilling)) {
+      throw new Error("La tienda no está recibiendo pedidos hasta regularizar su suscripción");
+    }
+
     if (deliveryDate.capacity != null) {
       const orderCount = await tx.order.count({
         where: { deliveryDateId: deliveryDate.id, status: { not: "CANCELLED" } },

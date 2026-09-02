@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
-import { MenuIcon, ChevronDownIcon, MoonIcon, SunIcon, ExternalLinkIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ChevronDownIcon, ExternalLinkIcon, MenuIcon, MoonIcon, StoreIcon, SunIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,20 +17,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAdminTheme } from "@/components/admin/admin-theme-root";
-import { SociosSidebarContent } from "./socios-sidebar-content";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { YaaAccountSidebar } from "@/components/yaa-account-sidebar";
 
 function initials(name?: string | null) {
   if (!name) return "?";
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("");
+  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 }
 
-export function SociosTopbar() {
+export function YaaAccountTopbar({ hasOwnStore, isReseller }: { hasOwnStore: boolean; isReseller: boolean }) {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { containerRef, theme, toggleTheme } = useAdminTheme();
@@ -40,17 +35,11 @@ export function SociosTopbar() {
     <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur lg:px-8">
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 gap-0 p-0" showCloseButton={false} container={containerRef}>
-          <SheetTitle className="sr-only">Menú</SheetTitle>
-          <SociosSidebarContent onNavigate={() => setMobileOpen(false)} />
+          <SheetTitle className="sr-only">Menú de cuenta</SheetTitle>
+          <YaaAccountSidebar hasOwnStore={hasOwnStore} isReseller={isReseller} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
-      <Button
-        variant="outline"
-        size="icon"
-        aria-label="Abrir menú"
-        className="lg:hidden"
-        onClick={() => setMobileOpen(true)}
-      >
+      <Button variant="outline" size="icon" aria-label="Abrir menú" className="lg:hidden" onClick={() => setMobileOpen(true)}>
         <MenuIcon />
       </Button>
 
@@ -65,24 +54,20 @@ export function SociosTopbar() {
         >
           {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </button>
-
-        <Link
-          href="/"
-          target="_blank"
-          className="flex h-9 items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
+        <Link href="/" target="_blank" className="flex h-9 items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <ExternalLinkIcon className="size-3.5" />
           <span className="hidden sm:inline">Ver yaa.com.ar</span>
         </Link>
-
+        {hasOwnStore && (
+          <Link href="/mi-cuenta/tienda" className="flex h-9 items-center gap-1.5 px-3 text-xs font-semibold text-primary transition-colors hover:bg-muted">
+            <StoreIcon className="size-3.5" />
+            <span className="hidden sm:inline">Ir a mi tienda</span>
+          </Link>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger render={<button className="flex h-9 items-center gap-2 px-3 transition-colors hover:bg-muted" />}>
-            <Avatar size="sm">
-              <AvatarFallback>{initials(session?.user?.name)}</AvatarFallback>
-            </Avatar>
-            <span className="hidden max-w-32 truncate text-xs font-medium sm:inline">
-              {session?.user?.name ?? session?.user?.email}
-            </span>
+            <Avatar size="sm"><AvatarFallback>{initials(session?.user?.name)}</AvatarFallback></Avatar>
+            <span className="hidden max-w-32 truncate text-xs font-medium sm:inline">{session?.user?.name ?? session?.user?.email}</span>
             <ChevronDownIcon className="size-3 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56 p-1.5" container={containerRef}>
@@ -93,12 +78,17 @@ export function SociosTopbar() {
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            {/* <a> nativo, no <Link>: /api/auth/logout-all hace redirects
+            reales entre dominios para borrar cookies de sesión en cada uno
+            — con <Link>, Next lo trata como transición interna y el estado
+            de sesión en memoria no se entera hasta recargar a mano. */}
             <DropdownMenuItem
+              // eslint-disable-next-line @next/next/no-html-link-for-pages -- ver comentario arriba
+              render={<a href="/api/auth/logout-all" />}
               className="gap-2 py-1.5 text-sm text-muted-foreground"
-              onClick={() => signOut({ callbackUrl: "/registro" })}
             >
               <span className="size-1 shrink-0 rounded-full bg-current" />
-              Salir
+              Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -31,12 +31,19 @@ enum BillingStatus {
   SUSPENDED
 }
 
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
 // Los planes los define el propio super admin desde /platform/planes — acá
 // no hardcodeamos nombres ni precios reales, son datos de negocio.
 model Plan {
   id                String   @id @default(cuid())
   name              String   @unique
   priceMonthly      Decimal
+  priceAnnual       Decimal?
+  trialDays         Int      @default(10)
   // Límites opcionales — null significa "sin límite" en esa dimensión.
   maxProducts       Int?
   maxOrdersPerMonth Int?
@@ -44,32 +51,74 @@ model Plan {
   // en este plan — se puede prender/apagar en cualquier momento sin tocar
   // código, desde /platform/planes.
   allowCustomDomain Boolean  @default(false)
+  // Funciones que ya tenían todos los planes existentes antes de este
+  // toggle — por eso arrancan en `true` (a diferencia de allowCustomDomain,
+  // que es un upsell y arranca en false) y el super admin las apaga por
+  // plan solo si quiere restringirlas.
+  allowServices     Boolean  @default(true)
+  allowLoyalty      Boolean  @default(true)
+  allowStats        Boolean  @default(true)
+  allowTelegram     Boolean  @default(true)
   description       String?
   active            Boolean  @default(true)
+  // Solo un plan a la vez lleva el badge "Más elegido" en la landing
+  // pública — setFeaturedPlan() en /platform/planes se encarga de que
+  // marcar uno desmarque a los demás.
+  featured          Boolean  @default(false)
   order             Int      @default(0)
   createdAt         DateTime @default(now())
 
-  tenants        Tenant[]
+  tenants            Tenant[]
   planChangeRequests Tenant[] @relation("PlanChangeRequest")
-  pendingSignups User[]   @relation("PendingSignupPlan")
+  pendingSignups     User[]   @relation("PendingSignupPlan")
 }
 
 // Cada fila es un cobro que el super admin registró a mano (no un webhook de
 // pasarela) — sirve como historial de "quién pagó qué mes".
 model BillingPayment {
-  id          String   @id @default(cuid())
-  tenantId    String
-  amount      Decimal
-  periodStart DateTime
-  periodEnd   DateTime
-  paidAt      DateTime @default(now())
-  note        String?
-  createdAt   DateTime @default(now())
+  id                     String   @id @default(cuid())
+  tenantId               String
+  amount                 Decimal
+  periodStart            DateTime
+  periodEnd              DateTime
+  paidAt                 DateTime @default(now())
+  note                   String?
+  provider               String?
+  providerPaymentId      String?  @unique
+  providerSubscriptionId String?
+  createdAt              DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
   resellerCommission ResellerCommission?
 
   @@index([tenantId])
+}
+
+// Configuración comercial global. Las credenciales no se guardan acá:
+// viven como secretos del servidor. Esto permite editar la política de
+// cobro desde Platform sin exponer llaves capaces de mover dinero.
+model PlatformBillingSettings {
+  id                       String   @id @default("global")
+  enabled                  Boolean  @default(false)
+  currency                 String   @default("ARS")
+  graceDays                Int      @default(5)
+  accessTokenEnc           String?
+  webhookSecretEnc         String?
+  marketingWhatsappEnabled Boolean  @default(false)
+  marketingWhatsappNumber  String?
+  marketingWhatsappMessage String?
+  updatedAt                DateTime @updatedAt
+}
+
+model BillingWebhookEvent {
+  id          String    @id @default(cuid())
+  eventKey    String    @unique
+  topic       String
+  resourceId  String
+  status      String
+  error       String?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
 }
 
 // ---------- Programa de revendedores ----------
@@ -81,6 +130,10 @@ model ResellerSettings {
   id                    String   @id @default("global")
   activationBonusAmount Decimal  @default(0)
   activationBonusDays   Int      @default(60)
+  // Días desde que se genera una comisión (recurrente o bono) hasta que hay
+  // que pagarla. Es el mismo plazo para todos los tipos — el reloj arranca
+  // cuando la fila de ResellerCommission se crea, no antes.
+  commissionPayoutDays  Int      @default(30)
   updatedAt             DateTime @updatedAt
 }
 
@@ -121,13 +174,46 @@ model ResellerCommission {
 
   // Solo en RECURRING — el cobro puntual que generó esta comisión.
   billingPaymentId String?         @unique
-  billingPayment    BillingPayment? @relation(fields: [billingPaymentId], references: [id])
+  billingPayment   BillingPayment? @relation(fields: [billingPaymentId], references: [id])
 
   reseller User   @relation("ResellerCommissions", fields: [resellerId], references: [id])
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([resellerId])
   @@index([tenantId])
+}
+
+// Códigos creados por la plataforma para bonificar el alta de una tienda.
+// El beneficio se consume recién cuando el Tenant se crea, no al escribir
+// el código, para que los registros abandonados no gasten usos.
+model PromotionCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  description    String?
+  durationMonths Int       @default(12)
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  active         Boolean   @default(true)
+  validUntil     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  pendingUsers User[]                @relation("PendingPromotion")
+  redemptions  PromotionRedemption[]
+}
+
+model PromotionRedemption {
+  id              String   @id @default(cuid())
+  promotionCodeId String
+  tenantId        String   @unique
+  startsAt        DateTime
+  endsAt          DateTime
+  createdAt       DateTime @default(now())
+
+  promotionCode PromotionCode @relation(fields: [promotionCodeId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@index([promotionCodeId])
 }
 
 model Tenant {
@@ -150,21 +236,27 @@ model Tenant {
   businessCategory String?
   referralSource   String?
 
-  planId          String?
-  plan            Plan?            @relation(fields: [planId], references: [id])
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
 
   // Pedido del dueño de la tienda para cambiar de plan — se pide desde
   // /admin/configuracion, lo ve y aplica el super admin a mano desde
   // /platform (sigue sin pasarela de pago real, esto NO cambia el plan
   // solo). null cuando no hay ningún pedido pendiente.
-  requestedPlanId String?
-  requestedPlan   Plan?            @relation("PlanChangeRequest", fields: [requestedPlanId], references: [id])
-  requestedPlanAt DateTime?
-  billingStatus   BillingStatus    @default(TRIAL)
-  trialEndsAt     DateTime?
-  nextBillingDate DateTime?
-  billingNotes    String?
-  billingPayments BillingPayment[]
+  requestedPlanId            String?
+  requestedPlan              Plan?                @relation("PlanChangeRequest", fields: [requestedPlanId], references: [id])
+  requestedPlanAt            DateTime?
+  billingStatus              BillingStatus        @default(TRIAL)
+  trialEndsAt                DateTime?
+  nextBillingDate            DateTime?
+  billingNotes               String?
+  billingCycle               BillingCycle?
+  providerSubscriptionId     String?              @unique
+  providerSubscriptionStatus String?
+  subscriptionStartedAt      DateTime?
+  subscriptionSyncedAt       DateTime?
+  billingPayments            BillingPayment[]
+  promotionRedemption        PromotionRedemption?
 
   // Dominio propio (ej: pedidos.mimarca.com) — solo disponible si el plan de
   // la tienda tiene allowCustomDomain. El token se le pide al dueño del
@@ -175,33 +267,33 @@ model Tenant {
   customDomainToken    String?
   customDomainVerified Boolean @default(false)
 
-  users               User[] @relation("TenantUsers")
+  users User[] @relation("TenantUsers")
 
   // Revendedor que trajo esta tienda (si vino de un código) — solo para
   // calcular a quién corresponde la comisión de sus cobros. No cambia nada
   // de cara al dueño de la tienda.
   referredByResellerId String?
-  referredByReseller    User?   @relation("TenantReferredBy", fields: [referredByResellerId], references: [id])
-  resellerCommissions   ResellerCommission[]
-  categories          ProductCategory[]
-  products            Product[]
-  stockGroups         StockGroup[]
-  services            Service[]
-  serviceInquiries    ServiceInquiry[]
-  deliveryDates       DeliveryDate[]
-  storeClosures       StoreClosure[]
-  weeklyScheduleRules WeeklyScheduleRule[]
-  paymentMethods      PaymentMethodConfig[]
-  fulfillmentMethods  FulfillmentMethodConfig[]
-  pickupSlots         PickupSlot[]
-  orders              Order[]
-  pointsRules         PointsRule[]
-  coupons             Coupon[]
-  settings            Settings[]
-  aboutMedia          AboutMedia[]
-  stockMovements      StockMovement[]
-  emailLogs           EmailLog[]
-  whatsappLogs        WhatsappLog[]
+  referredByReseller   User?                     @relation("TenantReferredBy", fields: [referredByResellerId], references: [id])
+  resellerCommissions  ResellerCommission[]
+  categories           ProductCategory[]
+  products             Product[]
+  stockGroups          StockGroup[]
+  services             Service[]
+  serviceInquiries     ServiceInquiry[]
+  deliveryDates        DeliveryDate[]
+  storeClosures        StoreClosure[]
+  weeklyScheduleRules  WeeklyScheduleRule[]
+  paymentMethods       PaymentMethodConfig[]
+  fulfillmentMethods   FulfillmentMethodConfig[]
+  pickupSlots          PickupSlot[]
+  orders               Order[]
+  pointsRules          PointsRule[]
+  coupons              Coupon[]
+  settings             Settings[]
+  aboutMedia           AboutMedia[]
+  stockMovements       StockMovement[]
+  emailLogs            EmailLog[]
+  whatsappLogs         WhatsappLog[]
 }
 
 // ---------- Auth ----------
@@ -234,9 +326,14 @@ model User {
   // Mientras un usuario se está registrando en yaa.com.ar y todavía no tiene
   // tienda (tenantId null): plan elegido y marca de "ya pagó" el onboarding.
   // Se limpian cuando /registro/datos crea el Tenant y lo pasa a ADMIN.
-  pendingPlanId    String?
-  pendingPlan      Plan?     @relation("PendingSignupPlan", fields: [pendingPlanId], references: [id])
-  onboardingPaidAt DateTime?
+  pendingPlanId             String?
+  pendingPlan               Plan?          @relation("PendingSignupPlan", fields: [pendingPlanId], references: [id])
+  onboardingPaidAt          DateTime?
+  pendingBillingCycle       BillingCycle?
+  pendingSubscriptionId     String?        @unique
+  pendingSubscriptionStatus String?
+  pendingPromotionCodeId    String?
+  pendingPromotionCode      PromotionCode? @relation("PendingPromotion", fields: [pendingPromotionCodeId], references: [id])
 
   // Código propio de un revendedor para repartir — se genera al elegir "ser
   // socio" en /registro, único, se usa en la URL del QR
@@ -260,7 +357,7 @@ model User {
 
   // Tiendas que este revendedor trajo (role RESELLER) — no confundir con
   // `tenant` de arriba, que es la tienda PROPIA de un admin/cliente.
-  referredTenants Tenant[] @relation("TenantReferredBy")
+  referredTenants     Tenant[]             @relation("TenantReferredBy")
   resellerCommissions ResellerCommission[] @relation("ResellerCommissions")
 
   accounts         Account[]
@@ -311,6 +408,19 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Una fila por intento fallido de una acción sensible (login, registro,
+// recuperar contraseña). Se cuentan los de una misma `key` dentro de una
+// ventana de tiempo para frenar fuerza bruta. Va en la base y no en memoria
+// a propósito: sobrevive reinicios y sirve aunque corran varios procesos
+// de Next detrás de Nginx. Ver lib/rate-limit.ts.
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }
 
 // ---------- Catálogo ----------

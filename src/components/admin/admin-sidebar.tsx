@@ -20,12 +20,15 @@ import {
   ChevronDownIcon,
   ConciergeBellIcon,
   MessageSquareTextIcon,
+  ArrowUpCircleIcon,
+  ExternalLinkIcon,
 } from "lucide-react";
 
 import { useStoreSettings } from "@/lib/store-settings-context";
 import { cn } from "@/lib/utils";
+import type { PlanFeatures } from "@/lib/require-admin";
 
-const sections = [
+const baseSections = [
   { href: "/admin", label: "Resumen", icon: LayoutDashboardIcon },
   {
     href: "/admin/productos",
@@ -37,24 +40,25 @@ const sections = [
       { href: "/admin/productos?panel=grupos", label: "Grupos de stock", panel: "grupos" },
     ],
   },
-  { href: "/admin/servicios", label: "Servicios", icon: ConciergeBellIcon },
-  { href: "/admin/consultas", label: "Consultas", icon: MessageSquareTextIcon },
-  { href: "/admin/fechas", label: "Fechas y stock", icon: CalendarDaysIcon },
+  { href: "/admin/servicios", label: "Servicios", icon: ConciergeBellIcon, feature: "allowServices" as const },
+  { href: "/admin/consultas", label: "Consultas", icon: MessageSquareTextIcon, feature: "allowServices" as const },
+  { href: "/admin/fechas", label: "Cómo vendés", icon: CalendarDaysIcon },
   { href: "/admin/pedidos", label: "Pedidos", icon: ClipboardListIcon },
   { href: "/admin/pagos", label: "Medios de pago", icon: CreditCardIcon },
   { href: "/admin/entrega", label: "Entrega", icon: TruckIcon },
-  { href: "/admin/cupones", label: "Cupones", icon: TicketIcon },
-  { href: "/admin/puntos", label: "Puntos", icon: SparklesIcon },
-  { href: "/admin/estadisticas", label: "Estadísticas", icon: BarChart3Icon },
+  { href: "/admin/cupones", label: "Cupones", icon: TicketIcon, feature: "allowLoyalty" as const },
+  { href: "/admin/puntos", label: "Puntos", icon: SparklesIcon, feature: "allowLoyalty" as const },
+  { href: "/admin/estadisticas", label: "Estadísticas", icon: BarChart3Icon, feature: "allowStats" as const },
   { href: "/admin/usuarios", label: "Usuarios", icon: UsersIcon },
   { href: "/admin/configuracion", label: "Configuración", icon: SettingsIcon },
 ];
 
-export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 0 }: { onNavigate?: () => void; newInquiryCount?: number; newOrderCount?: number }) {
+export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 0, features, planInfo }: { onNavigate?: () => void; newInquiryCount?: number; newOrderCount?: number; features?: PlanFeatures; planInfo?: { name: string; canUpgrade: boolean } | null }) {
   const { storeName, logoUrl } = useStoreSettings();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel");
+  const sections = baseSections.filter((s) => !s.feature || !features || features[s.feature]);
 
   // La sección con sub-ítems se abre sola al entrar — pero una vez ahí, el
   // admin puede plegarla a mano sin que se reabra en cada click. Solo se
@@ -67,21 +71,21 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
 
   return (
     <div className="flex flex-1 w-full flex-col text-sidebar-foreground">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar-accent">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar-accent">
           {logoUrl ? (
-            <Image src={logoUrl} alt={storeName} width={36} height={36} className="size-full object-contain" />
+            <Image src={logoUrl} alt={storeName} width={32} height={32} className="size-full object-contain" />
           ) : (
             <StoreIcon className="size-4 text-sidebar-accent-foreground/70" />
           )}
         </span>
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-semibold">{storeName}</span>
-          <span className="text-xs text-sidebar-foreground/60">Panel de administración</span>
+          <span className="text-xs text-sidebar-foreground/60">Panel de tu tienda</span>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-1.5">
         {sections.map((s) => {
           const active = s.href === "/admin" ? pathname === "/admin" : pathname.startsWith(s.href);
           const expanded = expandedHref === s.href;
@@ -96,7 +100,7 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
                 }}
                 aria-expanded={s.subitems ? expanded : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -123,7 +127,7 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="ml-[1.15rem] flex flex-col gap-0.5 border-l border-sidebar-border py-1 pl-3.5">
+                    <div className="ml-[1.15rem] flex flex-col gap-0 border-l border-sidebar-border py-0.5 pl-3.5">
                       {s.subitems.map((sub) => {
                         const subActive = panel === sub.panel;
                         return (
@@ -132,7 +136,7 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
                             href={sub.href}
                             onClick={onNavigate}
                             className={cn(
-                              "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                              "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                               subActive
                                 ? "text-primary"
                                 : "text-sidebar-foreground/60 hover:text-sidebar-foreground",
@@ -151,15 +155,41 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border px-3 py-3">
+      <div className="border-t border-sidebar-border px-3 py-2">
+        {planInfo && (
+          <div className="mb-1 rounded-lg bg-sidebar-accent/50 px-3 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-sidebar-foreground/45">Tu plan</p>
+            <p className="truncate text-sm font-semibold">{planInfo.name}</p>
+            {planInfo.canUpgrade && (
+              <a
+                href="/admin/cuenta-yaa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 flex items-center justify-center gap-1.5 rounded-md bg-primary py-1 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <ArrowUpCircleIcon className="size-3.5" />
+                Mejorar plan
+              </a>
+            )}
+          </div>
+        )}
         <Link
           href="/"
           onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <StoreIcon className="size-4 shrink-0" />
           Ver tienda
         </Link>
+        <a
+          href="/admin/cuenta-yaa"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <ExternalLinkIcon className="size-4 shrink-0" />
+          Panel de YAA
+        </a>
       </div>
     </div>
   );

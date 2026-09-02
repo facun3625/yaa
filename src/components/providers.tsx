@@ -6,12 +6,14 @@ import { CartProvider } from "@/lib/cart-context";
 import { CartSheet } from "@/components/catalog/cart-sheet";
 import { LoginDialogProvider } from "@/lib/login-dialog-context";
 import { LoginDialog } from "@/components/login-dialog";
+import { useStoreSettings } from "@/lib/store-settings-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const { tenantId } = useStoreSettings();
   return (
     <SessionProvider>
       <LoginDialogProvider>
-        <CartProvider>
+        <CartProvider tenantId={tenantId}>
           {children}
           <CartSheet />
           <LoginDialog />

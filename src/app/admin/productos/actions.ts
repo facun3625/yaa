@@ -393,7 +393,10 @@ export async function saveProduct(id: string, formData: FormData) {
 
   await prisma.$transaction(async (tx) => {
     await tx.product.update({
-      where: { id },
+      // tenantId va también acá, aunque la pertenencia ya se validó arriba:
+      // el where deja de depender de que esa comprobación previa siga
+      // existiendo si alguien reordena el código más adelante.
+      where: { id, tenantId: tenant.id },
       data: {
         name: parsed.name,
         description: parsed.description ?? null,
@@ -449,4 +452,10 @@ export async function saveProduct(id: string, formData: FormData) {
 
   revalidatePath("/admin/productos");
   revalidatePath(`/admin/productos/${id}`);
+  // Igual que deleteProduct/duplicateProduct: redirigir acá (no dejárselo a
+  // un router.push del lado del cliente después del await) hace que la
+  // navegación viaje con el RSC recién renderizado de este mismo request —
+  // sin esto, la lista podía mostrar la versión de ANTES de guardar si el
+  // cliente ya la tenía en caché de una visita previa.
+  redirect("/admin/productos");
 }

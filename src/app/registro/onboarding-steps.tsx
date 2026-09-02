@@ -1,10 +1,13 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Cuenta", "Plan", "Pago", "Tu tienda"];
+const STEPS = ["Cuenta", "Plan", "Tu tienda"];
 
 export function OnboardingSteps({ current }: { current: number }) {
   return (
-    <div className="mx-auto flex w-full max-w-md items-center justify-between">
+    <div className="flex flex-col items-center gap-5">
+      <Image src="/yaa-logo-clean.svg" alt="YAA" width={835} height={478} className="h-8 w-auto object-contain" priority />
+      <div className="mx-auto flex w-full max-w-md items-center justify-between">
       {STEPS.map((label, i) => {
         const step = i + 1;
         const done = step < current;
@@ -28,6 +31,7 @@ export function OnboardingSteps({ current }: { current: number }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

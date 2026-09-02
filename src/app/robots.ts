@@ -4,7 +4,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/revendedores", "/terminos", "/privacidad"],
+      allow: ["/", "/revendedores", "/preguntas-frecuentes", "/terminos", "/privacidad"],
       disallow: ["/admin/", "/platform/", "/registro/", "/socios", "/api/"],
     },
     sitemap: "https://yaa.com.ar/sitemap.xml",

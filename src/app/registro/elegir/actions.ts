@@ -11,7 +11,11 @@ import { generateReferralCode } from "@/lib/referral-code";
 // siendo CUSTOMER acá es lo que le deja, más adelante, también crear su
 // propia tienda sin que "ser socio" se lo impida (ver requireReseller,
 // que gatea por tener código, no por rol).
-export async function becomeReseller() {
+//
+// `redirectTo` deja reusar esta misma acción para "solo socio" (vuelve a
+// /socios) y para "quiero las dos cosas" (sigue directo a elegir plan, sin
+// pasar dos veces por esta pantalla).
+export async function becomeReseller(redirectTo: string) {
   const session = await requireOnboardingUser();
 
   const referralCode = await generateReferralCode();
@@ -20,5 +24,5 @@ export async function becomeReseller() {
     data: { referralCode },
   });
 
-  redirect("/socios");
+  redirect(redirectTo);
 }

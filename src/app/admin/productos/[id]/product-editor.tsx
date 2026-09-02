@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -139,7 +138,6 @@ export function ProductEditor({
   categories: { id: string; name: string }[];
   stockGroups: { id: string; name: string }[];
 }) {
-  const router = useRouter();
   const { containerRef } = useAdminTheme();
   const [pending, startTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
@@ -273,8 +271,6 @@ export function ProductEditor({
         }
 
         await saveProduct(product.id, formData);
-        toast.success("Producto guardado");
-        router.push("/admin/productos");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo guardar el producto");
       }
@@ -415,15 +411,13 @@ export function ProductEditor({
         </div>
       </div>
 
-      {/* Información básica */}
-      <section className="flex flex-col gap-4 rounded-lg border p-4">
-        <h2 className="font-medium">Información básica</h2>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="p-name">Nombre</Label>
             <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="p-category">Categoría</Label>
             <Select
@@ -443,215 +437,208 @@ export function ProductEditor({
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="p-description">Descripción (opcional)</Label>
-          <Textarea
-            id="p-description"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
-          <label className="flex items-center gap-2.5 text-sm">
-            <Switch checked={active} onCheckedChange={setActive} />
-            <div className="flex flex-col">
-              <span className="font-medium">Visible en la tienda</span>
-              <span className="text-xs text-muted-foreground">
-                Si lo apagás, los clientes no lo ven aunque tenga stock.
-              </span>
-            </div>
-          </label>
-          <label className="flex items-center gap-2.5 text-sm">
-            <Switch checked={featured} onCheckedChange={setFeatured} />
-            <div className="flex flex-col">
-              <span className="font-medium">Destacado</span>
-              <span className="text-xs text-muted-foreground">Se muestra primero en el catálogo.</span>
-            </div>
-          </label>
-          <label className="flex items-center gap-2.5 text-sm">
-            <Switch checked={contactToBuy} onCheckedChange={setContactToBuy} />
-            <div className="flex flex-col">
-              <span className="font-medium">Consultar por WhatsApp</span>
-              <span className="text-xs text-muted-foreground">
-                Sin precio ni carrito — el cliente te escribe para cotizarlo (ideal para catering o
-                encargos grandes).
-              </span>
-            </div>
-          </label>
-        </div>
-
-        <div className="flex flex-col gap-2 border-t pt-3">
-          <Label>Etiquetas (opcional)</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
-              >
-                {t}
-                <button type="button" onClick={() => setTags((prev) => prev.filter((x) => x !== t))}>
-                  <XIcon className="size-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  addTag(tagInput);
-                  setTagInput("");
-                }
-              }}
-              placeholder="Escribí y presioná Enter"
-              className="flex-1"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {TAG_SUGGESTIONS.filter((s) => !tags.includes(s)).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => addTag(s)}
-                className="rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
-              >
-                + {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Fotos */}
-      <section className="flex flex-col gap-3 rounded-lg border p-4">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="font-medium">Fotos</h2>
-          <p className="text-xs text-muted-foreground">
-            La primera foto es la portada, la que se ve en el catálogo.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-          {images.map((img, i) => (
-            <div key={img.key} className="flex flex-col gap-1">
-              <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                <Image
-                  src={img.kind === "existing" ? img.url : img.previewUrl}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  unoptimized={img.kind === "new"}
-                />
-                {i === 0 && (
-                  <span className="absolute top-1 left-1 flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-medium text-primary-foreground">
-                    <StarIcon className="size-2.5 fill-current" />
-                    Portada
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeImage(img)}
-                  className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+          <div className="flex flex-col gap-2">
+            <Label>Etiquetas (opcional)</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
                 >
-                  <XIcon className="size-3" />
-                </button>
-              </div>
-              <div className="flex justify-center gap-1">
-                <button
-                  type="button"
-                  disabled={i === 0}
-                  onClick={() => setImages((prev) => move(prev, i, i - 1))}
-                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label="Mover antes"
-                >
-                  <ChevronUpIcon className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  disabled={i === images.length - 1}
-                  onClick={() => setImages((prev) => move(prev, i, i + 1))}
-                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label="Mover después"
-                >
-                  <ChevronDownIcon className="size-3.5" />
-                </button>
-              </div>
+                  {t}
+                  <button type="button" onClick={() => setTags((prev) => prev.filter((x) => x !== t))}>
+                    <XIcon className="size-3" />
+                  </button>
+                </span>
+              ))}
             </div>
-          ))}
+            <div className="flex gap-2">
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagInput);
+                    setTagInput("");
+                  }
+                }}
+                placeholder="Escribí y presioná Enter"
+                className="flex-1"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {TAG_SUGGESTIONS.filter((s) => !tags.includes(s)).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => addTag(s)}
+                  className="rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+                >
+                  + {s}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex aspect-square flex-col items-center justify-center gap-1 rounded-md border border-dashed text-muted-foreground hover:border-foreground hover:text-foreground"
-          >
-            <ImagePlusIcon className="size-5" />
-            <span className="text-xs">Agregar</span>
-          </button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            handleFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-      </section>
-
-      {/* Variantes */}
-      <section className="flex flex-col gap-3 rounded-lg border p-4">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="font-medium">Gustos y tamaños</h2>
-          <p className="text-xs text-muted-foreground">
-            {contactToBuy
-              ? "Con \"Consultar por WhatsApp\" activado el precio no se muestra — solo importan los nombres."
-              : "Cada combinación tiene su propio precio y su propio stock — individual, o compartido con otras."}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {variants.map((v, i) => (
-            <VariantRow
-              key={v.key}
-              variant={v}
-              index={i}
-              count={variants.length}
-              hidePrice={contactToBuy}
-              expanded={expandedVariant === v.key}
-              sharedStockGroups={stockGroups}
-              onToggleExpand={() => setExpandedVariant((cur) => (cur === v.key ? null : v.key))}
-              onChange={(patch) =>
-                setVariants((prev) => prev.map((x) => (x.key === v.key ? { ...x, ...patch } : x)))
-              }
-              onMove={(dir) =>
-                setVariants((prev) => move(prev, i, dir === "up" ? i - 1 : i + 1))
-              }
-              onRemove={() => removeVariant(v)}
-            />
-          ))}
-          {variants.length === 0 && (
-            <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-              Sin variantes todavía — el producto no va a aparecer en la tienda hasta que
-              agregues al menos una.
+          <div className="flex flex-col gap-2">
+            <Label>Gustos y tamaños</Label>
+            <p className="text-xs text-muted-foreground">
+              {contactToBuy
+                ? "Con \"Consultar por WhatsApp\" activado el precio no se muestra — solo importan los nombres."
+                : "Cada combinación tiene su propio precio y su propio stock — individual, o compartido con otras."}
             </p>
-          )}
+            <div className="flex flex-col gap-2">
+              {variants.map((v, i) => (
+                <VariantRow
+                  key={v.key}
+                  variant={v}
+                  index={i}
+                  count={variants.length}
+                  hidePrice={contactToBuy}
+                  expanded={expandedVariant === v.key}
+                  sharedStockGroups={stockGroups}
+                  onToggleExpand={() => setExpandedVariant((cur) => (cur === v.key ? null : v.key))}
+                  onChange={(patch) =>
+                    setVariants((prev) => prev.map((x) => (x.key === v.key ? { ...x, ...patch } : x)))
+                  }
+                  onMove={(dir) =>
+                    setVariants((prev) => move(prev, i, dir === "up" ? i - 1 : i + 1))
+                  }
+                  onRemove={() => removeVariant(v)}
+                />
+              ))}
+              {variants.length === 0 && (
+                <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  Sin variantes todavía — el producto no va a aparecer en la tienda hasta que
+                  agregues al menos una.
+                </p>
+              )}
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={addVariant} className="self-start">
+              <PlusIcon className="size-4" />
+              Agregar variante
+            </Button>
+          </div>
         </div>
 
-        <Button type="button" variant="outline" onClick={addVariant} className="self-start">
-          <PlusIcon className="size-4" />
-          Agregar variante
-        </Button>
-      </section>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label>Fotos</Label>
+            <p className="text-xs text-muted-foreground">
+              La primera foto es la portada, la que se ve en el catálogo.
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {images.map((img, i) => (
+                <div key={img.key} className="flex flex-col gap-1">
+                  <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                    <Image
+                      src={img.kind === "existing" ? img.url : img.previewUrl}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      unoptimized={img.kind === "new"}
+                    />
+                    {i === 0 && (
+                      <span className="absolute top-1 left-1 flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-medium text-primary-foreground">
+                        <StarIcon className="size-2.5 fill-current" />
+                        Portada
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeImage(img)}
+                      className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </div>
+                  <div className="flex justify-center gap-1">
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => setImages((prev) => move(prev, i, i - 1))}
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      aria-label="Mover antes"
+                    >
+                      <ChevronUpIcon className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === images.length - 1}
+                      onClick={() => setImages((prev) => move(prev, i, i + 1))}
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      aria-label="Mover después"
+                    >
+                      <ChevronDownIcon className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex aspect-square flex-col items-center justify-center gap-1 rounded-md border border-dashed text-muted-foreground hover:border-foreground hover:text-foreground"
+              >
+                <ImagePlusIcon className="size-5" />
+                <span className="text-xs">Agregar</span>
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="p-description">Descripción</Label>
+            <Textarea
+              id="p-description"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t pt-4 sm:grid sm:grid-cols-3 sm:gap-6">
+        <label className="flex items-center gap-2.5 text-sm">
+          <Switch checked={active} onCheckedChange={setActive} />
+          <div className="flex flex-col">
+            <span className="font-medium">Visible en la tienda</span>
+            <span className="text-xs text-muted-foreground">
+              Si lo apagás, los clientes no lo ven aunque tenga stock.
+            </span>
+          </div>
+        </label>
+        <label className="flex items-center gap-2.5 text-sm">
+          <Switch checked={featured} onCheckedChange={setFeatured} />
+          <div className="flex flex-col">
+            <span className="font-medium">Destacado</span>
+            <span className="text-xs text-muted-foreground">Se muestra primero en el catálogo.</span>
+          </div>
+        </label>
+        <label className="flex items-center gap-2.5 text-sm">
+          <Switch checked={contactToBuy} onCheckedChange={setContactToBuy} />
+          <div className="flex flex-col">
+            <span className="font-medium">Consultar por WhatsApp</span>
+            <span className="text-xs text-muted-foreground">
+              Sin precio ni carrito — el cliente te escribe para cotizarlo (ideal para catering o
+              encargos grandes).
+            </span>
+          </div>
+        </label>
+      </div>
 
       <div
         className={cn(
@@ -725,28 +712,46 @@ function VariantRow({
           </button>
         </div>
 
-        <Input
-          value={variant.gusto}
-          onChange={(e) => onChange({ gusto: e.target.value })}
-          placeholder="Gusto (opcional)"
-          className="min-w-0 flex-1"
-        />
-        <Input
-          value={variant.tamano}
-          onChange={(e) => onChange({ tamano: e.target.value })}
-          placeholder="Tamaño (opcional)"
-          className="min-w-0 flex-1"
-        />
+        {count > 1 && (
+          <>
+            <Input
+              value={variant.gusto}
+              onChange={(e) => onChange({ gusto: e.target.value })}
+              placeholder="Gusto (opcional)"
+              className="min-w-0 flex-1"
+            />
+            <Input
+              value={variant.tamano}
+              onChange={(e) => onChange({ tamano: e.target.value })}
+              placeholder="Tamaño (opcional)"
+              className="min-w-0 flex-1"
+            />
+          </>
+        )}
         {!hidePrice && (
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={variant.price}
-            onChange={(e) => onChange({ price: e.target.value })}
-            placeholder="Precio"
-            className="w-24 shrink-0"
-          />
+          <div className={cn("flex items-center gap-2", count === 1 && "min-w-0 flex-1")}>
+            {count === 1 && (
+              <Label htmlFor={`price-${variant.key}`} className="shrink-0 text-sm font-normal text-muted-foreground">
+                Precio
+              </Label>
+            )}
+            <div className="relative w-24 shrink-0">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                $
+              </span>
+              <Input
+                id={`price-${variant.key}`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={variant.price}
+                onChange={(e) => onChange({ price: e.target.value })}
+                placeholder="0"
+                aria-label="Precio"
+                className="pl-6"
+              />
+            </div>
+          </div>
         )}
         <Switch
           checked={variant.active}

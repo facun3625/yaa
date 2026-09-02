@@ -51,12 +51,20 @@ export default async function ProductsPage({
           <StockGroupManager
             key={`stock-${params.panel ?? "none"}`}
             defaultOpen={params.panel === "grupos"}
-            groups={stockGroups.map((g) => ({
-              id: g.id,
-              name: g.name,
-              defaultStockQuantity: g.defaultStockQuantity,
-              productCount: g._count.variants,
-            }))}
+            groups={stockGroups
+              // Los pozos individuales (una sola variante) los crea el
+              // sistema solo, al vuelo, cada vez que una variante pide
+              // "stock propio" — no son algo que el dueño de la tienda haya
+              // armado a mano acá, así que no se listan en esta pantalla.
+              // Mismo criterio que ya usa el selector "Compartir con..." al
+              // cargar un producto.
+              .filter((g) => g._count.variants > 1)
+              .map((g) => ({
+                id: g.id,
+                name: g.name,
+                defaultStockQuantity: g.defaultStockQuantity,
+                productCount: g._count.variants,
+              }))}
           />
           <CategoryManager
             key={`cat-${params.panel ?? "none"}`}

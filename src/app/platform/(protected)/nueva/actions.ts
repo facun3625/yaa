@@ -39,16 +39,27 @@ export async function createTenant(formData: FormData) {
     throw new Error("Ya existe una tienda con ese subdominio");
   }
 
-  const passwordHash = await bcrypt.hash(parsed.adminPassword, 10);
+  const [passwordHash, plan] = await Promise.all([
+    bcrypt.hash(parsed.adminPassword, 10),
+    parsed.planId
+      ? prisma.plan.findUnique({ where: { id: parsed.planId, active: true }, select: { id: true, trialDays: true } })
+      : null,
+  ]);
+  if (parsed.planId && !plan) throw new Error("El plan elegido ya no está disponible");
 
-  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const trialEndsAt = plan && plan.trialDays > 0
+    ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000)
+    : null;
 
   const tenant = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
         subdomain: parsed.subdomain,
-        planId: parsed.planId || null,
+        planId: plan?.id ?? null,
+        billingStatus: trialEndsAt ? "TRIAL" : "SUSPENDED",
         trialEndsAt,
+        nextBillingDate: trialEndsAt ?? now,
       },
     });
     await tx.settings.create({

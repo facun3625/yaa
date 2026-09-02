@@ -186,7 +186,7 @@ function ImageField({
           className={
             shape === "circle"
               ? "flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted"
-              : "flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-xl bg-muted"
+              : "flex aspect-[16/7] h-[200px] w-auto max-w-full items-center justify-center overflow-hidden rounded-xl bg-muted"
           }
         >
           {preview && (

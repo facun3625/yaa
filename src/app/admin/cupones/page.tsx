@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CouponsTable } from "./coupons-table";
 
 export default async function CouponsPage() {
-  const { tenant } = await requireTenantAdmin();
+  const { tenant, features } = await requireTenantAdminWithPlan();
+  if (!features.allowLoyalty) notFound();
 
   const coupons = await prisma.coupon.findMany({
     where: { tenantId: tenant.id },

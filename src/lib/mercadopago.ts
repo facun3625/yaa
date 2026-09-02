@@ -40,6 +40,174 @@ async function mpFetch(accessToken: string, path: string, init?: RequestInit) {
   return res.json();
 }
 
+export type MpSubscription = {
+  id: string;
+  status: string;
+  externalReference: string | null;
+  initPoint: string | null;
+  payerId: string | null;
+  nextPaymentDate: Date | null;
+  amount: number;
+  frequency: number;
+  frequencyType: string;
+};
+
+type MpSubscriptionResponse = {
+  id: string | number;
+  status: string;
+  external_reference?: string | number | null;
+  init_point?: string | null;
+  payer_id?: string | number | null;
+  next_payment_date?: string | null;
+  auto_recurring?: {
+    transaction_amount?: number;
+    frequency?: number;
+    frequency_type?: string;
+  };
+};
+
+function mapSubscription(data: MpSubscriptionResponse): MpSubscription {
+  return {
+    id: String(data.id),
+    status: String(data.status),
+    externalReference: data.external_reference ? String(data.external_reference) : null,
+    initPoint: data.init_point ? String(data.init_point) : null,
+    payerId: data.payer_id ? String(data.payer_id) : null,
+    nextPaymentDate: data.next_payment_date ? new Date(String(data.next_payment_date)) : null,
+    amount: Number(data.auto_recurring?.transaction_amount ?? 0),
+    frequency: Number(data.auto_recurring?.frequency ?? 1),
+    frequencyType: String(data.auto_recurring?.frequency_type ?? "months"),
+  };
+}
+
+export async function createSubscription(
+  accessToken: string,
+  input: {
+    reason: string;
+    externalReference: string;
+    payerEmail: string;
+    amount: number;
+    frequency: number;
+    trialDays: number;
+    backUrl: string;
+  },
+): Promise<MpSubscription> {
+  const data = await mpFetch(accessToken, "/preapproval", {
+    method: "POST",
+    headers: { "X-Idempotency-Key": input.externalReference },
+    body: JSON.stringify({
+      reason: input.reason,
+      external_reference: input.externalReference,
+      payer_email: input.payerEmail,
+      auto_recurring: {
+        frequency: input.frequency,
+        frequency_type: "months",
+        transaction_amount: input.amount,
+        currency_id: MP_CURRENCY,
+        ...(input.trialDays > 0
+          ? { free_trial: { frequency: input.trialDays, frequency_type: "days" } }
+          : {}),
+      },
+      back_url: input.backUrl,
+      status: "pending",
+    }),
+  });
+  return mapSubscription(data);
+}
+
+export async function getSubscription(accessToken: string, id: string): Promise<MpSubscription> {
+  return mapSubscription(await mpFetch(accessToken, `/preapproval/${encodeURIComponent(id)}`));
+}
+
+export async function updateSubscriptionStatus(
+  accessToken: string,
+  id: string,
+  status: "paused" | "authorized" | "canceled",
+): Promise<MpSubscription> {
+  return mapSubscription(await mpFetch(accessToken, `/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  }));
+}
+
+export async function updateSubscriptionBilling(
+  accessToken: string,
+  id: string,
+  input: { reason: string; amount: number },
+): Promise<MpSubscription> {
+  return mapSubscription(await mpFetch(accessToken, `/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      reason: input.reason,
+      auto_recurring: {
+        transaction_amount: input.amount,
+        currency_id: MP_CURRENCY,
+      },
+    }),
+  }));
+}
+
+export type MpAuthorizedPayment = {
+  id: string;
+  subscriptionId: string | null;
+  status: string;
+  amount: number;
+  paidAt: Date;
+};
+
+export async function getAuthorizedPayment(accessToken: string, id: string): Promise<MpAuthorizedPayment> {
+  const data = await mpFetch(accessToken, `/authorized_payments/${encodeURIComponent(id)}`);
+  return {
+    id: String(data.id),
+    subscriptionId: data.preapproval_id ? String(data.preapproval_id) : null,
+    // El status superior describe la factura (scheduled/processed/recycling);
+    // el resultado monetario real vive en payment.status.
+    status: String(data.payment?.status ?? data.summarized ?? data.status),
+    amount: Number(data.transaction_amount ?? 0),
+    paidAt: new Date(String(data.debit_date ?? data.date_created ?? Date.now())),
+  };
+}
+
+export async function testMercadoPagoConnection(accessToken: string): Promise<{ id: string; nickname: string | null }> {
+  // Probamos el recurso que YAA realmente necesita. Algunas credenciales
+  // TEST válidas para suscripciones reciben un 403 de PolicyAgent al llamar
+  // /users/me, por lo que esa consulta daba falsos negativos.
+  try {
+    await mpFetch(accessToken, "/preapproval/search?limit=1&offset=0");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "";
+    const response = detail.match(/^MercadoPago respondió (\d+):\s*([\s\S]*)$/);
+    const status = response?.[1] ?? null;
+    let providerCode: string | null = null;
+    let providerMessage: string | null = null;
+    if (response?.[2]) {
+      try {
+        const body = JSON.parse(response[2]) as { code?: unknown; message?: unknown };
+        providerCode = typeof body.code === "string" ? body.code : null;
+        providerMessage = typeof body.message === "string" ? body.message : null;
+      } catch {
+        // Si Mercado Pago devuelve HTML u otro formato, mostramos solamente
+        // el status HTTP; nunca el cuerpo crudo ni datos de la operación.
+      }
+    }
+    if (detail.includes("403") || detail.includes("PA_UNAUTHORIZED")) {
+      throw new Error(
+        "Mercado Pago rechazó esta credencial para suscripciones. Verificá que sea el Access Token de la aplicación de YAA y no el Public Key ni una credencial de otra cuenta",
+      );
+    }
+    if (status) {
+      throw new Error(
+        `Mercado Pago respondió ${status}${providerCode ? ` · ${providerCode}` : ""}${providerMessage ? `: ${providerMessage}` : ""}`,
+      );
+    }
+    throw new Error("No pudimos comunicarnos con Mercado Pago. Revisá la conexión e intentá nuevamente");
+  }
+  return {
+    id: "subscriptions",
+    nickname: accessToken.startsWith("TEST-") ? "Credencial TEST habilitada para suscripciones" : "Credencial de producción habilitada",
+  };
+}
+
 // Crea el "link de pago" para un pedido. `externalReference` es lo que nos
 // vuelve en el webhook para saber de qué pedido se trata — no dependemos del
 // host ahí (ver src/app/api/webhooks/mercadopago/route.ts).
@@ -69,6 +237,7 @@ export async function createPreference(
         currency_id: MP_CURRENCY,
       })),
       external_reference: externalReference,
+      payer: payerEmail ? { email: payerEmail } : undefined,
       notification_url: notificationUrl,
       back_urls: { success: backUrl, failure: backUrl, pending: backUrl },
       // Vuelve solo a la tienda cuando el pago se aprueba, sin que tenga que

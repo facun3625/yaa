@@ -1,11 +1,14 @@
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { notFound } from "next/navigation";
+
+import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import { getActivePointsRule } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { RateForm } from "./rate-form";
 
 export default async function AdminPointsPage() {
-  const { tenant } = await requireTenantAdmin();
+  const { tenant, features } = await requireTenantAdminWithPlan();
+  if (!features.allowLoyalty) notFound();
 
   const [rule, redemptionsCount] = await Promise.all([
     getActivePointsRule(tenant.id),

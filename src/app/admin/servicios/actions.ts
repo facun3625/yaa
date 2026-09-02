@@ -58,7 +58,12 @@ export async function saveService(id: string | null, formData: FormData) {
     if (!exists) throw new Error("Servicio no encontrado");
     await tx.serviceField.deleteMany({ where: { serviceId: id } });
     await tx.serviceImage.deleteMany({ where: { serviceId: id, id: { notIn: parsed.existingImages.map((x) => x.id) } } });
-    for (const image of parsed.existingImages) await tx.serviceImage.update({ where: { id: image.id }, data: { order: image.order } });
+    // updateMany con serviceId en el where (y no update por id suelto): los
+    // ids vienen del cliente, así que sin esa condición se le podía cambiar
+    // el orden a una imagen de otra tienda mandando un id ajeno.
+    for (const image of parsed.existingImages) {
+      await tx.serviceImage.updateMany({ where: { id: image.id, serviceId: id }, data: { order: image.order } });
+    }
     return tx.service.update({ where: { id }, data: { ...data,
       fields: { create: parsed.fields.map((f, order) => ({ ...f, options: f.type === "SELECT" ? f.options.filter(Boolean) : [], order })) },
       images: { create: uploaded },

@@ -22,10 +22,10 @@ export function DocumentacionTab() {
         </p>
       </Section>
 
-      <Section title="Fechas y stock">
+      <Section title="Cómo vendés">
         <p>
           <b>Horario semanal:</b> la tienda toma pedidos solo dentro de ventanas horarias fijas por
-          día (ej. lunes 9 a 18hs). Se configura en Fechas y stock → Modalidad.
+          día (ej. lunes 9 a 18hs). Se configura en Cómo vendés → Modalidad.
         </p>
         <p>
           <b>Ventas programadas:</b> vos abrís fechas puntuales (ej. &quot;sábado 14&quot;) con su
@@ -35,7 +35,7 @@ export function DocumentacionTab() {
         <p>
           <b>Stock:</b> se trackea por grupo — cada variante puede tener su propio pozo individual o
           compartir uno con otras (ej. distintos sabores de la misma torta), o quedar sin límite. Se
-          define por variante en la ficha del producto, y por fecha en Fechas y stock.
+          define por variante en la ficha del producto, y por fecha en Cómo vendés.
         </p>
       </Section>
 

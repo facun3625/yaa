@@ -1,9 +1,10 @@
 import Image from "next/image";
-import { Store, Users, LayoutDashboard } from "lucide-react";
+import { Store, Users, LayoutDashboard, Sparkles } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { requireOnboardingUser } from "@/lib/require-onboarding";
 import { becomeReseller } from "./actions";
+import { OnboardingCredit } from "../onboarding-brand";
 
 export default async function ElegirPage() {
   // Esto también reverifica contra la base (no confía en la sesión vieja) y
@@ -55,22 +56,40 @@ export default async function ElegirPage() {
               </div>
             </a>
           ) : (
-            <form action={becomeReseller}>
-              <button
-                type="submit"
-                className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-colors hover:border-[#ff5a36]/50 hover:bg-white/[0.05]"
-              >
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#ff5a36]/15 text-[#ff7658]">
-                  <Users className="size-6" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold">Ser socio comercial</span>
-                  <span className="text-xs text-white/50">Recomendá yaa y ganá una comisión por cada tienda que traigas.</span>
-                </div>
-              </button>
-            </form>
+            <>
+              <form action={becomeReseller.bind(null, "/socios")}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-colors hover:border-[#ff5a36]/50 hover:bg-white/[0.05]"
+                >
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#ff5a36]/15 text-[#ff7658]">
+                    <Users className="size-6" />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold">Ser socio comercial</span>
+                    <span className="text-xs text-white/50">Recomendá yaa y ganá una comisión por cada tienda que traigas.</span>
+                  </div>
+                </button>
+              </form>
+
+              <form action={becomeReseller.bind(null, "/registro/plan")}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-colors hover:border-[#ff5a36]/50 hover:bg-white/[0.05]"
+                >
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#ff5a36]/15 text-[#ff7658]">
+                    <Sparkles className="size-6" />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold">Quiero hacer las dos cosas</span>
+                    <span className="text-xs text-white/50">Te dejamos tu código de socio listo y seguís directo a crear tu tienda.</span>
+                  </div>
+                </button>
+              </form>
+            </>
           )}
         </div>
+        <OnboardingCredit />
       </div>
     </main>
   );

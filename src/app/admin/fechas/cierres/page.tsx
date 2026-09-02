@@ -12,7 +12,7 @@ export default async function ClosuresPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Fechas y stock</h1>
+      <h1 className="text-xl font-semibold">Cómo vendés</h1>
       <FechasSubnav />
 
       <ClosuresManager

@@ -60,7 +60,7 @@ const categories = [
     questions: [
       ["¿Necesito instalar algo?", "No. YAA funciona online y se puede administrar desde computadora, tablet o celular."],
       ["¿Necesito conocimientos técnicos?", "No. La configuración está pensada para que puedas hacerla desde el panel. Si necesitás ayuda con la puesta en marcha, podés comunicarte con nosotros."],
-      ["¿Cómo funcionan los 10 días de prueba?", "Creás tu cuenta, elegís el plan que querés evaluar y seguís el proceso de alta informado en pantalla. Antes de cualquier contratación definitiva vas a poder ver el precio y las condiciones aplicables."],
+      ["¿Puedo probar YAA antes de contratar?", "Los planes o promociones que incluyan un período de prueba muestran su duración durante el alta. Si un plan no lo incluye, también se informa antes de confirmarlo."],
       ["¿Puedo cambiar de plan?", "Sí. Podés elegir un plan diferente cuando cambien las necesidades de tu negocio, sujeto a las condiciones vigentes."],
       ["¿Qué diferencia hay entre el pago mensual y anual?", "El mensual se renueva cada mes. Con la modalidad anual abonás el período completo y obtenés el beneficio informado en la página de precios."],
     ],

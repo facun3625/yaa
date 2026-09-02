@@ -15,6 +15,7 @@ function revalidateRevendedores() {
 const settingsSchema = z.object({
   activationBonusAmount: z.coerce.number().nonnegative("No puede ser negativo"),
   activationBonusDays: z.coerce.number().int().positive("Tiene que ser mayor a 0"),
+  commissionPayoutDays: z.coerce.number().int().positive("Tiene que ser mayor a 0"),
 });
 
 export async function updateResellerSettings(formData: FormData) {
@@ -22,6 +23,7 @@ export async function updateResellerSettings(formData: FormData) {
   const parsed = settingsSchema.parse({
     activationBonusAmount: formData.get("activationBonusAmount"),
     activationBonusDays: formData.get("activationBonusDays"),
+    commissionPayoutDays: formData.get("commissionPayoutDays"),
   });
 
   await prisma.resellerSettings.upsert({
@@ -74,6 +76,18 @@ export async function markCommissionPaid(id: string) {
   await requireSuperAdmin();
   await prisma.resellerCommission.update({
     where: { id },
+    data: { status: "PAID", paidAt: new Date() },
+  });
+  revalidateRevendedores();
+}
+
+// Para cuando efectivamente le transferís a un revendedor: salda de una
+// todo lo que tenga pendiente, no solo lo ya vencido — si le estás pagando
+// ahora, no tiene sentido dejar afuera lo que vence en unos días más.
+export async function markAllCommissionsPaid(resellerId: string) {
+  await requireSuperAdmin();
+  await prisma.resellerCommission.updateMany({
+    where: { resellerId, status: "PENDING" },
     data: { status: "PAID", paidAt: new Date() },
   });
   revalidateRevendedores();

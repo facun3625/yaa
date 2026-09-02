@@ -37,13 +37,21 @@ export default async function SociosTiendasPage() {
                     <p className="truncate font-medium">{storeName}</p>
                     <p className="text-xs text-muted-foreground">
                       {tenant.subdomain}.{ROOT_DOMAIN} · {tenant.plan?.name ?? "Sin plan"}
-                      {tenant.billingStatus === "ACTIVE" && tenant.nextBillingDate && tenant.plan && (
-                        <>
-                          {" "}· próximo cobro estimado{" "}
-                          {new Date(tenant.nextBillingDate).toLocaleDateString("es-AR")} · ~$
-                          {((Number(tenant.plan.priceMonthly) * tierPercent) / 100).toLocaleString("es-AR")}
-                        </>
-                      )}
+                      {tenant.billingStatus === "ACTIVE" && tenant.nextBillingDate && tenant.plan && (() => {
+                        // El próximo cobro es el anual si la tienda factura
+                        // anual — usar siempre el precio mensual acá
+                        // subestimaba mucho la estimación de un referido anual.
+                        const nextChargePrice = tenant.billingCycle === "ANNUAL" && tenant.plan.priceAnnual !== null
+                          ? Number(tenant.plan.priceAnnual)
+                          : Number(tenant.plan.priceMonthly);
+                        return (
+                          <>
+                            {" "}· próximo cobro estimado{" "}
+                            {new Date(tenant.nextBillingDate).toLocaleDateString("es-AR")} · ~$
+                            {((nextChargePrice * tierPercent) / 100).toLocaleString("es-AR")}
+                          </>
+                        );
+                      })()}
                     </p>
                   </div>
                   <span

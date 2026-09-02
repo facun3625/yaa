@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/format";
 import { TenantStatusToggle } from "./tenant-status-toggle";
 import { BillingPanel } from "./billing-panel";
+import { DeleteTenantButton } from "./delete-tenant-button";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 
@@ -26,6 +27,7 @@ export default async function TenantDetailPage({
         users: { where: { role: "ADMIN" } },
         plan: true,
         requestedPlan: true,
+        promotionRedemption: { include: { promotionCode: true } },
         billingPayments: { orderBy: { paidAt: "desc" }, take: 10 },
         _count: { select: { products: true, orders: true } },
       },
@@ -96,6 +98,14 @@ export default async function TenantDetailPage({
             </Badge>
           </span>
         )}
+        {tenant.promotionRedemption && (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            Promoción: {tenant.promotionRedemption.promotionCode.code}
+            <Badge variant="secondary" className="text-[0.65rem]">
+              Bonificada hasta {dateFormatter.format(tenant.promotionRedemption.endsAt)}
+            </Badge>
+          </span>
+        )}
       </div>
 
       <BillingPanel
@@ -121,8 +131,9 @@ export default async function TenantDetailPage({
         <CardHeader>
           <CardTitle className="text-sm font-medium text-destructive">Zona de riesgo</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-2">
           <TenantStatusToggle tenantId={tenant.id} status={tenant.status} />
+          <DeleteTenantButton tenantId={tenant.id} subdomain={tenant.subdomain} />
         </CardContent>
       </Card>
     </div>

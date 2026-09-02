@@ -1,36 +1,161 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YAA — pedidos online multi-tienda
 
-## Getting Started
+Plataforma SaaS donde cada comercio tiene su tienda en un subdominio propio
+(`mitienda.yaa.com.ar`) o en su dominio propio, y YAA cobra una suscripción
+por tienda. Next.js (App Router) + Prisma + PostgreSQL.
 
-First, run the development server:
+Hay tres paneles distintos, cada uno con su login:
+
+| Panel | Dónde vive | Quién entra |
+|---|---|---|
+| Tienda | `mitienda.<ROOT_DOMAIN>/admin` | Dueño de la tienda (`ADMIN`) |
+| Plataforma | `<ROOT_DOMAIN>/platform` | Equipo de YAA (`SUPER_ADMIN`) |
+| Cuenta YAA | `<ROOT_DOMAIN>/mi-cuenta` | Dueño de tienda, revendedor, cliente |
+
+## Arrancar en local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up -d          # PostgreSQL en el puerto 5452
+cp .env.example .env          # completar los valores (ver comentarios adentro)
+npx auth secret               # genera AUTH_SECRET
+npm install
+npx prisma migrate dev        # crea el esquema
+npm run dev                   # http://localhost:3010
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Los subdominios funcionan en local sin tocar `/etc/hosts`: los navegadores
+resuelven `cualquier-cosa.localhost` a 127.0.0.1. O sea,
+`http://mitienda.localhost:3010` entra a esa tienda.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Todas están documentadas una por una en `.env.example`. Ninguna lleva el
+prefijo `NEXT_PUBLIC_`: son secretos de servidor y no deben llegar al
+navegador. `.env` está en `.gitignore` y nunca debe commitearse.
 
-## Learn More
+### Después de tocar el esquema de Prisma
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx prisma migrate dev --name lo_que_hiciste
+npx prisma generate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Y **subí el número de `PRISMA_SCHEMA_VERSION` en `src/lib/prisma.ts`**. Next
+conserva `globalThis` entre hot reloads, así que sin ese cambio el servidor de
+desarrollo puede seguir usando el cliente de Prisma viejo y tirar errores del
+tipo "la propiedad X no existe" sobre campos que sí agregaste. Si aun así
+persiste, `rm -rf .next` y reiniciar `npm run dev`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Producción
 
-## Deploy on Vercel
+### Nginx
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Nginx va adelante de Next (que escucha en el 3010). Dos ajustes no son
+opcionales:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```nginx
+server {
+  server_name yaa.com.ar *.yaa.com.ar;
+
+  # El límite por defecto de Nginx es 1 MB y la app acepta hasta 20 MB
+  # (fotos de producto, comprobantes de pago). Tiene que coincidir con
+  # `serverActions.bodySizeLimit` y `proxyClientMaxBodySize` de
+  # next.config.ts, o un archivo grande llega cortado y falla el upload.
+  client_max_body_size 20m;
+
+  location / {
+    proxy_pass http://127.0.0.1:3010;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # OJO: $remote_addr, NO $proxy_add_x_forwarded_for.
+    # El segundo CONSERVA lo que el cliente haya mandado en ese header, y el
+    # rate limiting lee justamente la primera IP de la lista — con la versión
+    # que acumula, cualquiera puede falsear su IP y saltarse el límite de
+    # intentos de login mandando su propio X-Forwarded-For.
+    proxy_set_header X-Forwarded-For   $remote_addr;
+  }
+}
+```
+
+El certificado tiene que ser wildcard (`*.yaa.com.ar`) para que cada tienda
+tenga HTTPS. Los dominios propios de clientes se agregan aparte, por dominio.
+
+### Cron diario (obligatorio)
+
+`/api/cron/billing` es lo que hace que la facturación avance sola: suspende
+tiendas con la prueba vencida o impagas, aplica el período de gracia, y limpia
+los intentos de rate limit viejos. **Nadie lo llama solo** — si no se programa,
+las tiendas que dejan de pagar siguen funcionando indefinidamente.
+
+```cron
+0 3 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://yaa.com.ar/api/cron/billing
+```
+
+Sin `CRON_SECRET` definido el endpoint responde `401` a todo (falla cerrado, a
+propósito). Usá un valor distinto al de local:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+### Webhooks de Mercado Pago
+
+Apuntar en el panel de Mercado Pago a:
+
+- `https://yaa.com.ar/api/webhooks/mercadopago` — pagos sueltos
+- `https://yaa.com.ar/api/webhooks/mercadopago/subscriptions` — suscripciones
+
+Los dos validan la firma `x-signature` contra
+`MERCADOPAGO_PLATFORM_WEBHOOK_SECRET` antes de creerle nada al mensaje, y
+además re-consultan el estado contra la API de Mercado Pago en vez de confiar
+en el cuerpo del POST.
+
+## Notas de seguridad
+
+Cosas que ya están resueltas y conviene no romper sin querer:
+
+- **Permisos.** Toda Server Action y toda página del panel arranca con
+  `requireTenantAdmin()` / `requireSuperAdmin()` / `requireOwnTenantAdmin()`
+  **como primera línea**, antes de tocar la base. Si agregás una acción nueva,
+  seguí ese patrón.
+- **Aislamiento entre tiendas.** Toda consulta de la tienda filtra por
+  `tenantId`, casi siempre con un `where: { id, tenantId }` compuesto. Nunca
+  hagas `update({ where: { id } })` con un `id` que viene del cliente sin
+  sumarle el `tenantId`: habilita que el admin de una tienda toque datos de
+  otra probando ids. Las acciones de `/platform` sí usan `id` suelto, porque
+  ahí el `SUPER_ADMIN` opera cross-tenant a propósito.
+- **Rate limiting** (`src/lib/rate-limit.ts`). Login, registro y recuperar
+  contraseña cuentan intentos fallidos en la tabla `RateLimitAttempt`. Se
+  guarda en la base y no en memoria para que sobreviva reinicios y funcione
+  con varios procesos de Next. El límite por cuenta (10 fallos / 15 min) es la
+  defensa principal porque no depende de headers; el límite por IP es
+  complementario y **depende de que Nginx reescriba `X-Forwarded-For`** como se
+  explica arriba. Cuando bloquea, responde igual que con una contraseña
+  incorrecta: decir "estás bloqueado" confirmaría que la cuenta existe.
+- **Secretos de Mercado Pago de cada tienda.** Se guardan cifrados con
+  AES-256-GCM (`src/lib/secret-box.ts`), con la clave derivada de
+  `AUTH_SECRET`. Si cambiás `AUTH_SECRET` en producción, los tokens ya
+  guardados dejan de poder descifrarse y hay que volver a cargarlos.
+- **HTML de usuario.** El único `dangerouslySetInnerHTML` está en
+  `src/components/catalog/rich-text.tsx` y pasa por DOMPurify con lista blanca
+  de etiquetas. No agregues otro sin sanitizar.
+- **Nada de SQL crudo.** No hay `$queryRaw` ni `$executeRaw` en el código de la
+  app; todo va por el query builder de Prisma, que parametriza solo.
+
+## Sesiones y multi-dominio
+
+El login es un tema delicado acá porque conviven tres dominios distintos
+(raíz, subdominio de tienda, dominio propio del cliente). Antes de tocar
+`src/auth.ts`, `src/auth.config.ts`, `src/lib/auth-adapter.ts` o `src/proxy.ts`,
+leé los comentarios largos que ya están ahí: explican por qué las cookies de
+OAuth son host-only, por qué Google siempre vuelve al dominio raíz, y cómo
+funciona el "pase efímero" de un solo uso que mueve una sesión del dominio raíz
+al subdominio de la tienda.
+
+La sesión es JWT (sin estado). Eso significa que **borrar un usuario de la base
+no invalida su sesión al instante**: su token sigue siendo válido hasta que
+vence. Por eso `src/app/mi-cuenta/layout.tsx` vuelve a buscar el usuario en la
+base y, si ya no existe, manda a `/api/auth/logout-all` en lugar de redirigir
+a la home — si no, la sesión fantasma rebota para siempre sin explicación.

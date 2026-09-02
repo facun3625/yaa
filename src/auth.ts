@@ -6,6 +6,14 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/auth.config";
 import { tenantAwareAdapter } from "@/lib/auth-adapter";
+import {
+  LOGIN_IP_RULE,
+  LOGIN_RULE,
+  clearFailures,
+  clientIp,
+  isRateLimited,
+  recordFailure,
+} from "@/lib/rate-limit";
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 const IS_LOCAL = ROOT_DOMAIN.startsWith("localhost");
@@ -99,10 +107,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
           const credentialsTenantId = (credentials?.tenantId as string | undefined) || null;
           if (!email || !password) return null;
 
+          // Freno de fuerza bruta. La key incluye el ámbito y el tenant
+          // porque el mismo email puede existir como cliente de una tienda,
+          // dueño de otra y super admin — bloquear uno no tiene por qué
+          // bloquear los demás.
+          const scopeKey = scope ?? (credentialsTenantId ? `tenant:${credentialsTenantId}` : "unknown");
+          const accountKey = `login:${scopeKey}:${email.toLowerCase()}`;
+          const ipKey = `login-ip:${clientIp(req?.headers ?? new Headers())}`;
+          const [accountBlocked, ipBlocked] = await Promise.all([
+            isRateLimited(accountKey, LOGIN_RULE),
+            isRateLimited(ipKey, LOGIN_IP_RULE),
+          ]);
+          // Se devuelve null (igual que una contraseña incorrecta) en vez de
+          // un error propio: decir "estás bloqueado" le confirmaría al
+          // atacante que la cuenta existe y que va por buen camino.
+          if (accountBlocked || ipBlocked) return null;
+
           const user = scope === "platform"
             ? await prisma.user.findFirst({
                 where: { email, tenantId: null, role: "SUPER_ADMIN" },
               })
+            : scope === "yaa-account"
+              // La cuenta central de yaa.com.ar admite al dueño aunque su
+              // User ya pertenezca a una tienda. Esa sesión queda en el
+              // dominio raíz; desde /mi-cuenta se genera el pase efímero al
+              // subdominio solo cuando el usuario elige entrar a su tienda.
+              ? await prisma.user.findFirst({
+                  where: {
+                    email,
+                    OR: [
+                      { role: "ADMIN", tenantId: { not: null } },
+                      { role: "SUPER_ADMIN", tenantId: null },
+                      { role: { in: ["CUSTOMER", "RESELLER"] }, tenantId: null },
+                    ],
+                  },
+                })
             : credentialsTenantId
               ? await prisma.user.findUnique({
                   where: { tenantId_email: { tenantId: credentialsTenantId, email } },
@@ -118,10 +157,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
                     where: { email, tenantId: null, role: "CUSTOMER" },
                   })
                 : null;
-          if (!user?.passwordHash) return null;
+          if (!user?.passwordHash) {
+            await Promise.all([recordFailure(accountKey), recordFailure(ipKey)]);
+            return null;
+          }
 
           const valid = await bcrypt.compare(password, user.passwordHash);
-          if (!valid) return null;
+          if (!valid) {
+            await Promise.all([recordFailure(accountKey), recordFailure(ipKey)]);
+            return null;
+          }
+
+          // Entró bien: se borra el historial para que los errores previos
+          // no se le acumulen a alguien que simplemente se equivocó al tipear.
+          await clearFailures(accountKey);
 
           return {
             id: user.id,

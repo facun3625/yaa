@@ -120,6 +120,105 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Identidad de los tres espacios privados. Comparten componentes y
+   comportamiento, pero el contexto se reconoce de inmediato por fondo,
+   sidebar y acento. */
+.admin-shell-yaa {
+  --background: #f7f2e9;
+  --foreground: #241d19;
+  --card: #fffdf9;
+  --card-foreground: #241d19;
+  --popover: #fffdf9;
+  --popover-foreground: #241d19;
+  --primary: #ff5023;
+  --primary-foreground: #ffffff;
+  --secondary: #eee5d8;
+  --secondary-foreground: #241d19;
+  --muted: #eee5d8;
+  --muted-foreground: #786e66;
+  --accent: #ffe1d7;
+  --accent-foreground: #6e2617;
+  --border: #dfd4c6;
+  --input: #dfd4c6;
+  --ring: #ff5023;
+  --sidebar: #fffaf3;
+  --sidebar-foreground: #241d19;
+  --sidebar-accent: #f2e8dc;
+  --sidebar-accent-foreground: #241d19;
+  --sidebar-border: #dfd4c6;
+}
+
+.admin-shell-yaa.dark {
+  --background: #17120f;
+  --foreground: #fff8f1;
+  --card: #211a16;
+  --card-foreground: #fff8f1;
+  --popover: #281f1a;
+  --popover-foreground: #fff8f1;
+  --secondary: #342820;
+  --secondary-foreground: #fff8f1;
+  --muted: #342820;
+  --muted-foreground: #b8a99e;
+  --accent: #48271d;
+  --accent-foreground: #fff8f1;
+  --border: rgba(255, 225, 210, 0.13);
+  --input: rgba(255, 225, 210, 0.18);
+  --sidebar: #120e0c;
+  --sidebar-foreground: #fff8f1;
+  --sidebar-accent: #2c211b;
+  --sidebar-accent-foreground: #fff8f1;
+  --sidebar-border: rgba(255, 225, 210, 0.12);
+}
+
+.admin-shell-store.dark {
+  --background: #090a0d;
+  --card: #121318;
+  --popover: #17181e;
+  --secondary: #202126;
+  --muted: #202126;
+  --accent: #342019;
+  --border: rgba(255, 255, 255, 0.1);
+  --sidebar: #050506;
+  --sidebar-accent: #1a1a1d;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+}
+
+.admin-shell-platform {
+  --primary: #665cff;
+  --primary-foreground: #ffffff;
+  --ring: #665cff;
+  --accent: #ebe9ff;
+  --accent-foreground: #282258;
+  --sidebar-primary: #665cff;
+}
+
+.admin-shell-platform.dark {
+  --background: #0b1020;
+  --foreground: #f2f3ff;
+  --card: #12182b;
+  --card-foreground: #f2f3ff;
+  --popover: #161d33;
+  --popover-foreground: #f2f3ff;
+  --primary: #8b82ff;
+  --primary-foreground: #100d2d;
+  --secondary: #202945;
+  --secondary-foreground: #f2f3ff;
+  --muted: #202945;
+  --muted-foreground: #9ca6c8;
+  --accent: #292754;
+  --accent-foreground: #f2f3ff;
+  --border: rgba(166, 177, 220, 0.16);
+  --input: rgba(166, 177, 220, 0.22);
+  --ring: #8b82ff;
+  --sidebar: #080c19;
+  --sidebar-foreground: #e9ebff;
+  --sidebar-accent: #171e35;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(166, 177, 220, 0.15);
+  --sidebar-primary: #8b82ff;
+  --sidebar-primary-foreground: #100d2d;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

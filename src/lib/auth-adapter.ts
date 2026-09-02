@@ -24,7 +24,7 @@ export function tenantAwareAdapter(tenantId: string | null): Adapter {
 
   return {
     ...base,
-    createUser: async ({ id: _id, ...data }) => {
+    createUser: async (data) => {
       return prisma.user.create({ data: { ...data, tenantId } });
     },
     getUserByEmail: async (email) => {
@@ -38,14 +38,34 @@ export function tenantAwareAdapter(tenantId: string | null): Adapter {
         // con Google con el mismo email que el super admin terminaría
         // logueado COMO el super admin en vez de arrancar su propio
         // registro.
-        return prisma.user.findFirst({ where: { tenantId: null, email, role: "CUSTOMER" } });
+        return prisma.user.findFirst({
+          where: {
+            email,
+            OR: [
+              { tenantId: null, role: "CUSTOMER" },
+              { tenantId: { not: null }, role: "ADMIN" },
+            ],
+          },
+          orderBy: { tenantId: "asc" },
+        });
       }
       return prisma.user.findUnique({ where: { tenantId_email: { tenantId, email } } });
     },
     getUserByAccount: async ({ provider, providerAccountId }) => {
       const account =
         tenantId === null
-          ? await prisma.account.findFirst({ where: { tenantId: null, provider, providerAccountId }, include: { user: true } })
+          ? await prisma.account.findFirst({
+              where: {
+                provider,
+                providerAccountId,
+                OR: [
+                  { tenantId: null },
+                  { tenantId: { not: null }, user: { role: "ADMIN" } },
+                ],
+              },
+              include: { user: true },
+              orderBy: { tenantId: "asc" },
+            })
           : await prisma.account.findUnique({
               where: { tenantId_provider_providerAccountId: { tenantId, provider, providerAccountId } },
               include: { user: true },

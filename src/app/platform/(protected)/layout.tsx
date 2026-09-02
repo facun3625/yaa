@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { AdminThemeRoot } from "@/components/admin/admin-theme-root";
 import { ConfirmProvider } from "@/components/admin/confirm-provider";
 import { PromptProvider } from "@/components/admin/prompt-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
 import { PlatformSidebarContent } from "./platform-sidebar-content";
 import { PlatformTopbar } from "./platform-topbar";
@@ -18,7 +19,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <SessionProvider>
-      <AdminThemeRoot fontFamily={montserrat.style.fontFamily}>
+      <AdminThemeRoot fontFamily={montserrat.style.fontFamily} variant="platform" defaultTheme="dark">
         <ConfirmProvider>
           <PromptProvider>
             <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
@@ -31,6 +32,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
                 <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">{children}</div>
               </main>
             </div>
+            <Toaster />
           </PromptProvider>
         </ConfirmProvider>
       </AdminThemeRoot>

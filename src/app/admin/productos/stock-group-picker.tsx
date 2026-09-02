@@ -100,7 +100,7 @@ export function StockGroupPicker({
           : "Comparte un único total por fecha con todo lo que esté en ese grupo."} La cantidad
         se carga por fecha, no acá —{" "}
         <Link href="/admin/fechas" className="font-medium text-foreground hover:underline">
-          Fechas y stock
+          Cómo vendés
         </Link>
         , pestaña &quot;Stock&quot;.
       </p>

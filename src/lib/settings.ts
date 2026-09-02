@@ -98,6 +98,26 @@ export const getOrderEmailMessage = cache(async (tenantId: string): Promise<stri
   return row?.value || null;
 });
 
+// ---------- SEO (solo tiendas con dominio propio verificado) ----------
+
+export type SeoSettings = {
+  title: string | null;
+  description: string | null;
+  ogImageUrl: string | null;
+};
+
+const SEO_SETTINGS_KEYS = ["seo_title", "seo_description", "seo_og_image_url"] as const;
+
+export const getSeoSettings = cache(async (tenantId: string): Promise<SeoSettings> => {
+  const rows = await prisma.settings.findMany({ where: { tenantId, key: { in: [...SEO_SETTINGS_KEYS] } } });
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    title: map.seo_title || null,
+    description: map.seo_description || null,
+    ogImageUrl: map.seo_og_image_url || null,
+  };
+});
+
 // ---------- Telegram (aviso de pedido nuevo al grupo del equipo) ----------
 
 export type TelegramSettings = {

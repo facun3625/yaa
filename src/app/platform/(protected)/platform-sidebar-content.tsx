@@ -3,15 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, PlusIcon, UsersIcon } from "lucide-react";
+import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, GiftIcon, PlusIcon, UsersIcon, UserIcon, LandmarkIcon, SettingsIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const sections = [
   { href: "/platform", label: "Resumen", icon: LayoutDashboardIcon },
   { href: "/platform/tiendas", label: "Tiendas", icon: StoreIcon },
+  { href: "/platform/usuarios", label: "Usuarios", icon: UserIcon },
   { href: "/platform/planes", label: "Planes", icon: CreditCardIcon },
+  { href: "/platform/facturacion", label: "Facturación", icon: LandmarkIcon },
+  { href: "/platform/promociones", label: "Promociones", icon: GiftIcon },
   { href: "/platform/revendedores", label: "Revendedores", icon: UsersIcon },
+  { href: "/platform/configuracion", label: "Configuración", icon: SettingsIcon },
 ];
 
 export function PlatformSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -19,8 +23,9 @@ export function PlatformSidebarContent({ onNavigate }: { onNavigate?: () => void
 
   return (
     <div className="flex h-full w-full flex-col text-sidebar-foreground">
-      <div className="flex items-center px-4 py-4">
+      <div className="flex items-center gap-3 px-4 py-4">
         <Image src="/yaa-logo-clean.svg" alt="yaa" width={835} height={478} className="h-7 w-auto object-contain" />
+        <span className="rounded-full border border-primary/25 bg-primary/15 px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">Platform</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-2">

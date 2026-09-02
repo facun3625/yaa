@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { REGISTER_RULE, clientIp, isRateLimited, recordFailure } from "@/lib/rate-limit";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Ingresá tu nombre"),
@@ -16,6 +17,17 @@ const registerSchema = z.object({
 // recién se convierte en ADMIN de una tienda al terminar el onboarding
 // (ver /registro/datos/actions.ts).
 export async function POST(request: Request) {
+  // Mismo criterio que /api/auth/register: este endpoint es público y sin
+  // freno se le puede tirar un script encima para crear cuentas en masa.
+  const ipKey = `register-platform-ip:${clientIp(request.headers)}`;
+  if (await isRateLimited(ipKey, REGISTER_RULE)) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Probá de nuevo en un rato." },
+      { status: 429 },
+    );
+  }
+  await recordFailure(ipKey);
+
   const body = await request.json();
   const parsed = registerSchema.safeParse(body);
 
@@ -28,10 +40,18 @@ export async function POST(request: Request) {
 
   const { name, email, password } = parsed.data;
 
-  const existing = await prisma.user.findFirst({ where: { tenantId: null, email } });
+  const existing = await prisma.user.findFirst({
+    where: {
+      email,
+      OR: [
+        { tenantId: null },
+        { tenantId: { not: null }, role: "ADMIN" },
+      ],
+    },
+  });
   if (existing) {
     return NextResponse.json(
-      { error: "Ya existe una cuenta con ese email" },
+      { error: existing.tenantId ? "Ese email ya tiene una tienda en YAA" : "Ya existe una cuenta con ese email" },
       { status: 409 },
     );
   }

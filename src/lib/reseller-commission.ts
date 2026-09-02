@@ -7,7 +7,22 @@ export async function getResellerSettings() {
   const settings = await prisma.resellerSettings.findUnique({ where: { id: SETTINGS_ID } });
   // No debería faltar (el seed la crea), pero si alguien la borró a mano no
   // queremos que la app explote — arrancamos en 0 antes que romper.
-  return settings ?? { id: SETTINGS_ID, activationBonusAmount: 0, activationBonusDays: 60, updatedAt: new Date() };
+  return (
+    settings ?? {
+      id: SETTINGS_ID,
+      activationBonusAmount: 0,
+      activationBonusDays: 60,
+      commissionPayoutDays: 30,
+      updatedAt: new Date(),
+    }
+  );
+}
+
+// Fecha en la que una comisión pendiente pasa a estar vencida — el plazo
+// corre desde que se generó la fila, no desde el hecho que la originó (un
+// cobro, o que se cumplieron los días del bono de activación).
+export function commissionDueAt(createdAt: Date, payoutDays: number): Date {
+  return new Date(createdAt.getTime() + payoutDays * 24 * 60 * 60 * 1000);
 }
 
 export async function getCommissionTiers() {

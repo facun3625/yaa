@@ -29,7 +29,7 @@ export default async function DeliveryDatesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Fechas y stock</h1>
+        <h1 className="text-xl font-semibold">Cómo vendés</h1>
         {tenantRow.orderingMode === "SCHEDULED_SALES" && (
           <Button render={<Link href="/admin/fechas/nueva" />} size="sm">
             Nueva venta

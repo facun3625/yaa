@@ -18,16 +18,25 @@ export default async function PlansPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {plans.map((p) => (
+        {plans.map((p, index) => (
           <PlanRow
             key={p.id}
+            isFirst={index === 0}
+            isLast={index === plans.length - 1}
             plan={{
               id: p.id,
               name: p.name,
               priceMonthly: Number(p.priceMonthly),
+              priceAnnual: p.priceAnnual === null ? null : Number(p.priceAnnual),
+              trialDays: p.trialDays,
               maxProducts: p.maxProducts,
               maxOrdersPerMonth: p.maxOrdersPerMonth,
               allowCustomDomain: p.allowCustomDomain,
+              allowServices: p.allowServices,
+              allowLoyalty: p.allowLoyalty,
+              allowStats: p.allowStats,
+              allowTelegram: p.allowTelegram,
+              featured: p.featured,
               description: p.description,
               active: p.active,
               tenantCount: p._count.tenants,

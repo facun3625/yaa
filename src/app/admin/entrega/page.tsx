@@ -65,7 +65,7 @@ export default async function FulfillmentPage() {
             <span className="text-sm font-medium">Franjas horarias predeterminadas</span>
             <span className="text-xs text-muted-foreground">
               Se ofrecen para retirar en cualquier fecha, salvo que cargues franjas especiales
-              para una fecha puntual desde &quot;Fechas y stock&quot;. Opcional: si no cargás
+              para una fecha puntual desde &quot;Cómo vendés&quot;. Opcional: si no cargás
               ninguna, el retiro queda disponible sin horario puntual.
             </span>
           </div>

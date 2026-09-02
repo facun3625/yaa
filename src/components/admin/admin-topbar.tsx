@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { MenuIcon, StoreIcon, ChevronDownIcon, MoonIcon, SunIcon, PackageXIcon, BellIcon, ShoppingBagIcon, MessageSquareTextIcon } from "lucide-react";
+import { MenuIcon, StoreIcon, ChevronDownIcon, MoonIcon, SunIcon, PackageXIcon, BellIcon, ShoppingBagIcon, MessageSquareTextIcon, CreditCardIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -24,6 +24,31 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { setStoreOpen } from "@/app/admin/actions";
 import type { StockAlert } from "@/lib/stock-alerts";
+import type { PlanFeatures } from "@/lib/require-admin";
+import { cn } from "@/lib/utils";
+
+function PlanPill({ billingStatus, trialDaysLeft }: { billingStatus: string; trialDaysLeft: number | null }) {
+  let label = "Mi plan";
+  let tone = "border-border bg-background text-muted-foreground hover:bg-muted";
+  if (billingStatus === "TRIAL" && trialDaysLeft !== null) {
+    label = `Prueba · ${trialDaysLeft} ${trialDaysLeft === 1 ? "día" : "días"}`;
+    tone = "border-blue-500/30 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400";
+  } else if (billingStatus === "PAST_DUE" || billingStatus === "SUSPENDED") {
+    label = "Regularizar plan";
+    tone = "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20";
+  }
+  return (
+    <a
+      href="/admin/cuenta-yaa"
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors", tone)}
+    >
+      <CreditCardIcon className="size-3.5" />
+      <span>{label}</span>
+    </a>
+  );
+}
 
 function initials(name?: string | null) {
   if (!name) return "?";
@@ -37,7 +62,7 @@ function initials(name?: string | null) {
 
 export type AdminNotification = { id: string; type: "ORDER" | "INQUIRY"; title: string; detail: string; href: string; createdAt: string };
 
-export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOrderCount = 0, notificationCount = 0, notifications = [] }: { storeOpen: boolean; stockAlerts: StockAlert[]; newInquiryCount?: number; newOrderCount?: number; notificationCount?: number; notifications?: AdminNotification[] }) {
+export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOrderCount = 0, notificationCount = 0, notifications = [], billingStatus, trialDaysLeft, features, planInfo, salesModeConfigured = true }: { storeOpen: boolean; stockAlerts: StockAlert[]; newInquiryCount?: number; newOrderCount?: number; notificationCount?: number; notifications?: AdminNotification[]; billingStatus: string; trialDaysLeft: number | null; features?: PlanFeatures; planInfo?: { name: string; canUpgrade: boolean } | null; salesModeConfigured?: boolean }) {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { containerRef, theme, toggleTheme } = useAdminTheme();
@@ -61,12 +86,25 @@ export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOr
   }
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur print:hidden lg:px-8">
+    <header className="sticky top-0 z-10 flex flex-col border-b bg-background/95 backdrop-blur print:hidden">
+      {!salesModeConfigured && (
+        <Link
+          href="/admin/fechas"
+          className="flex items-center justify-between gap-3 border-b border-amber-500/25 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400 lg:px-8"
+        >
+          <span>
+            Para que tus productos se muestren en la tienda, primero tenés que elegir tu
+            modalidad de venta.
+          </span>
+          <span className="shrink-0 font-semibold underline underline-offset-2">Configurar</span>
+        </Link>
+      )}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8">
       {/* Mobile menu */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 gap-0 p-0" showCloseButton={false} container={containerRef}>
           <SheetTitle className="sr-only">Menú</SheetTitle>
-          <AdminSidebar onNavigate={() => setMobileOpen(false)} newInquiryCount={newInquiryCount} newOrderCount={newOrderCount} />
+          <AdminSidebar onNavigate={() => setMobileOpen(false)} newInquiryCount={newInquiryCount} newOrderCount={newOrderCount} features={features} planInfo={planInfo} />
         </SheetContent>
       </Sheet>
       <Button
@@ -82,6 +120,7 @@ export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOr
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-2">
+        <PlanPill billingStatus={billingStatus} trialDaysLeft={trialDaysLeft} />
         <DropdownMenu>
           <DropdownMenuTrigger render={<button aria-label="Notificaciones" className="relative flex size-9 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground" />}>
             <BellIcon className="size-4" />
@@ -182,9 +221,14 @@ export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOr
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
+              {/* <a> nativo, no <Link>: /api/auth/logout-all hace redirects
+              reales entre dominios para borrar cookies de sesión en cada
+              uno — con <Link>, Next lo trata como transición interna y el
+              estado de sesión en memoria no se entera hasta recargar a mano. */}
               <DropdownMenuItem
+                // eslint-disable-next-line @next/next/no-html-link-for-pages -- ver comentario arriba
+                render={<a href="/api/auth/logout-all" />}
                 className="gap-2 py-1.5 text-sm text-muted-foreground"
-                onClick={() => signOut({ callbackUrl: "/" })}
               >
                 <span className="size-1 shrink-0 rounded-full bg-current" />
                 Salir
@@ -192,6 +236,7 @@ export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOr
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
       </div>
     </header>
   );

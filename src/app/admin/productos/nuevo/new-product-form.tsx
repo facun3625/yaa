@@ -221,15 +221,21 @@ export function NewProductForm({
                         className="min-w-0 flex-1"
                       />
                       {!contactToBuy && (
-                        <Input
-                          value={v.price}
-                          onChange={(e) => updateVariantRow(v.key, { price: e.target.value })}
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          placeholder="Precio"
-                          className="w-24 shrink-0"
-                        />
+                        <div className="relative w-24 shrink-0">
+                          <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                            $
+                          </span>
+                          <Input
+                            value={v.price}
+                            onChange={(e) => updateVariantRow(v.key, { price: e.target.value })}
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="Precio"
+                            aria-label="Precio"
+                            className="pl-6"
+                          />
+                        </div>
                       )}
                       <button
                         type="button"

@@ -9,6 +9,8 @@ import { getPopupConfig } from "@/lib/popup";
 import { resolveScheduledSalesAvailability, resolveWeeklyAvailability, type OpenSale } from "@/lib/availability";
 import { getRemainingForVariants } from "@/lib/stock";
 import { YaaLanding } from "@/components/marketing/yaa-landing";
+import { canTenantReceiveOrders } from "@/lib/billing-status";
+import { getResellerSettings, getCommissionTiers } from "@/lib/reseller-commission";
 
 const saleDateFormatter = new Intl.DateTimeFormat("es-AR", {
   weekday: "long",
@@ -115,7 +117,68 @@ export default async function Home({
 }) {
   const { fecha } = await searchParams;
   const tenant = await getCurrentTenant();
-  if (!tenant) return <YaaLanding />;
+  if (!tenant) {
+    const [publicPlans, resellerSettings, resellerTiers] = await Promise.all([
+      prisma.plan.findMany({ where: { active: true }, orderBy: { order: "asc" } }),
+      getResellerSettings(),
+      getCommissionTiers(),
+    ]);
+    // Organization schema: lo que le permite a Google entender que "YAA" es
+    // una marca (no una palabra suelta) — habilita el logo en el panel de
+    // conocimiento y el buscador interno en los resultados. Sin sameAs a
+    // propósito: no hay redes sociales reales todavía, e inventar links
+    // rotos es peor que no tener la propiedad.
+    const organizationJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "YAA",
+      url: "https://yaa.com.ar",
+      logo: "https://yaa.com.ar/yaa-icon.svg",
+      description: "Pedidos online para gastronomía y negocios de cercanía, sin comisiones por venta.",
+    };
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <YaaLanding
+          plans={publicPlans.map((plan) => ({
+            id: plan.id,
+            name: plan.name,
+            priceMonthly: Number(plan.priceMonthly),
+            priceAnnual: plan.priceAnnual === null ? null : Number(plan.priceAnnual),
+            trialDays: plan.trialDays,
+            description: plan.description,
+            maxProducts: plan.maxProducts,
+            maxOrdersPerMonth: plan.maxOrdersPerMonth,
+            allowCustomDomain: plan.allowCustomDomain,
+            featured: plan.featured,
+          }))}
+          resellerSettings={{
+            activationBonusAmount: Number(resellerSettings.activationBonusAmount),
+            activationBonusDays: resellerSettings.activationBonusDays,
+          }}
+          resellerTiers={resellerTiers.map((tier) => ({ minActiveStores: tier.minActiveStores, percent: Number(tier.percent) }))}
+        />
+      </>
+    );
+  }
+
+  if (!canTenantReceiveOrders(tenant)) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <StoreHero />
+        <main className="relative z-1 -mt-6 flex flex-1 flex-col items-center justify-center gap-3 rounded-t-3xl bg-background px-6 py-16 text-center lg:-mt-32 lg:mx-auto lg:max-w-5xl lg:shadow-2xl xl:max-w-6xl 2xl:max-w-7xl">
+          <h1 className="text-2xl font-semibold">Tienda temporalmente no disponible</h1>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            En este momento no estamos recibiendo pedidos online. Volvé a intentarlo más tarde.
+          </p>
+        </main>
+        <StoreFooter />
+      </div>
+    );
+  }
 
   await expireStaleDates(tenant.id);
   const [resolved, popupConfig] = await Promise.all([

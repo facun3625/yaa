@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { canTenantReceiveOrders } from "@/lib/billing-status";
 import { seedDefaultStock, toDateAtNoon, toHHMM, todayKey } from "@/lib/schedule";
 
 const WEEKDAY_LABELS = [
@@ -102,6 +103,7 @@ async function nextWeeklyOpenLabel(tenantId: string): Promise<string | null> {
 /** Modo A: horario semanal. Resuelve si la tienda toma pedidos ahora mismo. */
 export async function resolveWeeklyAvailability(tenantId: string): Promise<WeeklyAvailability> {
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+  if (!canTenantReceiveOrders(tenant)) return { open: false, nextOpenLabel: null };
   if (tenant.ordersManuallyClosed) {
     // Cerrado a mano: no prometemos un próximo horario porque no reabre solo.
     return { open: false, nextOpenLabel: null };
@@ -184,6 +186,8 @@ export type ScheduledSalesAvailability =
 
 /** Modo B: ventas programadas. Resuelve qué "ventas" están tomando pedidos ahora. */
 export async function resolveScheduledSalesAvailability(tenantId: string): Promise<ScheduledSalesAvailability> {
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+  if (!canTenantReceiveOrders(tenant)) return { open: false, soldOut: false, nextSaleLabel: null };
   const sales = await getOpenSales(tenantId);
   if (sales.length > 0) return { open: true, sales };
 

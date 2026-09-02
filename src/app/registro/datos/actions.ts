@@ -12,9 +12,9 @@ const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "api", "platform", "
 
 const subdomainSchema = z
   .string()
-  .min(2, "Mínimo 2 caracteres")
+  .min(4, "Mínimo 4 caracteres")
   .max(40, "Máximo 40 caracteres")
-  .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones")
+  .regex(/^[a-z]+$/, "Usá solamente letras, sin espacios, números ni guiones")
   .refine((v) => !RESERVED_SUBDOMAINS.has(v), "Ese subdominio no está disponible");
 
 const datosSchema = z.object({
@@ -33,15 +33,46 @@ const datosSchema = z.object({
   province: z.string().optional(),
   businessCategory: z.string().optional(),
   referralSource: z.string().optional(),
+  promotionCode: z.string().trim().max(30).optional(),
 });
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
+export async function checkSubdomainAvailability(value: string) {
+  await requireOnboardingUser();
+
+  const parsed = subdomainSchema.safeParse(value.trim().toLowerCase());
+  if (!parsed.success) {
+    return { available: false, message: parsed.error.issues[0]?.message ?? "Subdominio inválido" };
+  }
+
+  const existing = await prisma.tenant.findUnique({
+    where: { subdomain: parsed.data },
+    select: { id: true },
+  });
+
+  return existing
+    ? { available: false, message: "Ese subdominio ya está ocupado" }
+    : { available: true, message: "Subdominio disponible" };
+}
+
 export async function createTenantFromOnboarding(formData: FormData) {
   const session = await requireOnboardingUser();
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user?.pendingPlanId || !user.onboardingPaidAt) {
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      pendingPlanId: true,
+      pendingReferralCode: true,
+      pendingPromotionCodeId: true,
+      pendingBillingCycle: true,
+      pendingSubscriptionId: true,
+      pendingSubscriptionStatus: true,
+      pendingPlan: { select: { trialDays: true } },
+    },
+  });
+  if (!user?.pendingPlanId || !user.pendingPlan) {
     redirect("/registro/plan");
   }
 
@@ -54,15 +85,14 @@ export async function createTenantFromOnboarding(formData: FormData) {
     province: formData.get("province") || undefined,
     businessCategory: formData.get("businessCategory") || undefined,
     referralSource: formData.get("referralSource") || undefined,
+    promotionCode: String(formData.get("promotionCode") ?? "").trim().toUpperCase() || undefined,
   });
 
   const existing = await prisma.tenant.findUnique({ where: { subdomain: parsed.subdomain } });
   if (existing) throw new Error("Ya existe una tienda con ese subdominio");
 
   const passwordHash = parsed.password ? await bcrypt.hash(parsed.password, 10) : undefined;
-
-  const nextBillingDate = new Date();
-  nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+  const planTrialDays = user.pendingPlan.trialDays;
 
   // Si llegó con el código de un revendedor (por /registro?ref=CODIGO o
   // tipeado a mano), acá es donde se fija de verdad la atribución — recién
@@ -79,12 +109,51 @@ export async function createTenantFromOnboarding(formData: FormData) {
     : null;
 
   const tenant = await prisma.$transaction(async (tx) => {
+    const promotion = parsed.promotionCode
+      ? await tx.promotionCode.findUnique({ where: { code: parsed.promotionCode } })
+      : user.pendingPromotionCodeId
+        ? await tx.promotionCode.findUnique({ where: { id: user.pendingPromotionCodeId } })
+        : null;
+    if ((parsed.promotionCode || user.pendingPromotionCodeId) && (!promotion || !promotion.active)) {
+      throw new Error("El código promocional ya no está activo");
+    }
+    if (promotion?.validUntil && promotion.validUntil < new Date()) {
+      throw new Error("El código promocional venció");
+    }
+    if (promotion?.maxUses !== null && promotion && promotion.usedCount >= promotion.maxUses) {
+      throw new Error("El código promocional alcanzó su límite de usos");
+    }
+
+    const now = new Date();
+    const billingCycle = user.pendingBillingCycle ?? "MONTHLY";
+    let nextBillingDate: Date;
+    let trialEndsAt: Date | null = null;
+    if (promotion) {
+      nextBillingDate = new Date(now);
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + promotion.durationMonths);
+    } else if (planTrialDays > 0) {
+      trialEndsAt = new Date(now.getTime() + planTrialDays * 24 * 60 * 60 * 1000);
+      nextBillingDate = trialEndsAt;
+    } else {
+      nextBillingDate = now;
+    }
+
     const tenant = await tx.tenant.create({
       data: {
         subdomain: parsed.subdomain,
         planId: user.pendingPlanId,
-        billingStatus: "ACTIVE",
+        billingStatus: promotion ? "ACTIVE" : trialEndsAt ? "TRIAL" : "SUSPENDED",
+        trialEndsAt,
         nextBillingDate,
+        billingCycle,
+        // Compatibilidad con registros que alcanzaron a usar el recorrido
+        // viejo de pago antes de crear la tienda. Nunca descartamos una
+        // autorización recurrente: queda vinculada al tenant nuevo.
+        providerSubscriptionId: user.pendingSubscriptionId,
+        providerSubscriptionStatus: user.pendingSubscriptionStatus,
+        subscriptionStartedAt: user.pendingSubscriptionId ? now : null,
+        subscriptionSyncedAt: user.pendingSubscriptionId ? now : null,
+        billingNotes: promotion ? `Bonificada ${promotion.durationMonths} meses con código ${promotion.code}` : null,
         referredByResellerId: reseller?.id,
         businessCategory: parsed.businessCategory,
         referralSource: parsed.referralSource,
@@ -128,6 +197,10 @@ export async function createTenantFromOnboarding(formData: FormData) {
         pendingPlanId: null,
         onboardingPaidAt: null,
         pendingReferralCode: null,
+        pendingPromotionCodeId: null,
+        pendingBillingCycle: null,
+        pendingSubscriptionId: null,
+        pendingSubscriptionStatus: null,
         ...(passwordHash ? { passwordHash } : {}),
         ...(parsed.phone ? { phone: parsed.phone } : {}),
       },
@@ -137,8 +210,23 @@ export async function createTenantFromOnboarding(formData: FormData) {
       data: { tenantId: tenant.id },
     });
 
+    if (promotion) {
+      await tx.promotionRedemption.create({
+        data: {
+          promotionCodeId: promotion.id,
+          tenantId: tenant.id,
+          startsAt: tenant.createdAt,
+          endsAt: nextBillingDate,
+        },
+      });
+      await tx.promotionCode.update({
+        where: { id: promotion.id },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
     return tenant;
-  });
+  }, { isolationLevel: "Serializable" });
 
   // Token de un solo uso para entrar directo al panel de la tienda nueva
   // sin pedirle de nuevo el email/contraseña que recién escribió — el

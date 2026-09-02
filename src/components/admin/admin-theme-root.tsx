@@ -23,11 +23,15 @@ export function useAdminTheme() {
 export function AdminThemeRoot({
   children,
   fontFamily,
+  variant = "store",
+  defaultTheme = "dark",
 }: {
   children: React.ReactNode;
   fontFamily: string;
+  variant?: "yaa" | "store" | "platform";
+  defaultTheme?: Theme;
 }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +39,11 @@ export function AdminThemeRoot({
     <AdminThemeContext.Provider value={{ theme, toggleTheme, containerRef }}>
       <div
         ref={containerRef}
-        className={cn("flex h-[100dvh] overflow-hidden bg-background text-foreground", theme === "dark" && "dark")}
+        className={cn(
+          "admin-shell flex h-[100dvh] overflow-hidden bg-background text-foreground",
+          `admin-shell-${variant}`,
+          theme === "dark" && "dark",
+        )}
         style={
           {
             "--font-sans": fontFamily,

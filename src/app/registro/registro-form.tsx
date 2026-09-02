@@ -7,9 +7,8 @@ import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { savePendingReferralCode, findAdminLoginLink } from "./actions";
+import { savePendingReferralCode } from "./actions";
 
 // "/registro" a secas, no un paso fijo: esa página ya sabe reanudar a cada
 // quien donde quedó (elegir tienda/socio, plan, pago, datos, o directo a
@@ -95,39 +94,9 @@ export function RegistroForm() {
     toast.error(message);
   }, [searchParams]);
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const result = await signIn("credentials", {
-      email: loginEmail,
-      password: loginPassword,
-      scope: "onboarding",
-      redirect: false,
-    });
-    setLoading(false);
-
-    if (result?.error) {
-      const adminLink = await findAdminLoginLink(loginEmail);
-      if (adminLink) {
-        toast.error("Ese email es de una tienda — el login es en tu propio subdominio.", {
-          action: { label: "Ir a mi tienda", onClick: () => { window.location.href = adminLink; } },
-        });
-      } else {
-        toast.error("Email o contraseña incorrectos");
-      }
-      return;
-    }
-    if (referralCode) await savePendingReferralCode(referralCode);
-    router.push(NEXT_STEP);
-    router.refresh();
-  }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -176,7 +145,7 @@ export function RegistroForm() {
         }
       >
         <GoogleIcon className="size-4" />
-        Continuar con Google
+        Crear cuenta con Google
       </button>
 
       <div className="flex items-center gap-3 text-xs text-white/40">
@@ -185,33 +154,14 @@ export function RegistroForm() {
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
-      <Tabs defaultValue="register">
-        <TabsList className="grid w-full grid-cols-2 rounded-xl">
-          <TabsTrigger value="register" className="rounded-lg">Crear cuenta</TabsTrigger>
-          <TabsTrigger value="login" className="rounded-lg">Ya tengo cuenta</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="register">
-          <form onSubmit={handleRegister} className="flex flex-col gap-3 pt-1">
-            <FloatingInput id="register-name" label="Nombre" required value={registerName} onChange={setRegisterName} />
-            <FloatingInput id="register-email" label="Email" type="email" required value={registerEmail} onChange={setRegisterEmail} />
-            <FloatingInput id="register-password" label="Contraseña" type="password" required minLength={6} value={registerPassword} onChange={setRegisterPassword} />
-            <Button type="submit" disabled={loading} size="lg" className="mt-1 w-full rounded-full bg-[#ff5a36] text-white hover:bg-[#ff5a36]/90">
-              {loading ? "Creando cuenta..." : "Crear cuenta"}
-            </Button>
-          </form>
-        </TabsContent>
-
-        <TabsContent value="login">
-          <form onSubmit={handleLogin} className="flex flex-col gap-3 pt-1">
-            <FloatingInput id="login-email" label="Email" type="email" required value={loginEmail} onChange={setLoginEmail} />
-            <FloatingInput id="login-password" label="Contraseña" type="password" required value={loginPassword} onChange={setLoginPassword} />
-            <Button type="submit" disabled={loading} size="lg" className="mt-1 w-full rounded-full bg-[#ff5a36] text-white hover:bg-[#ff5a36]/90">
-              {loading ? "Ingresando..." : "Continuar"}
-            </Button>
-          </form>
-        </TabsContent>
-      </Tabs>
+      <form onSubmit={handleRegister} className="flex flex-col gap-3">
+        <FloatingInput id="register-name" label="Nombre" required value={registerName} onChange={setRegisterName} />
+        <FloatingInput id="register-email" label="Email" type="email" required value={registerEmail} onChange={setRegisterEmail} />
+        <FloatingInput id="register-password" label="Contraseña" type="password" required minLength={6} value={registerPassword} onChange={setRegisterPassword} />
+        <Button type="submit" disabled={loading} size="lg" className="mt-1 w-full rounded-full bg-[#ff5a36] text-white hover:bg-[#ff5a36]/90">
+          {loading ? "Creando cuenta..." : "Crear mi cuenta"}
+        </Button>
+      </form>
       <p className="text-center text-xs leading-relaxed text-white/45">
         Al crear tu cuenta aceptás los <Link href="/terminos" target="_blank" className="underline hover:text-white">Términos de uso</Link> y la <Link href="/privacidad" target="_blank" className="underline hover:text-white">Política de privacidad</Link>.
       </p>

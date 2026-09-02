@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { RegistroForm } from "./registro-form";
 import { AlreadyLoggedInBanner } from "./already-logged-in-banner";
+import { OnboardingCredit } from "./onboarding-brand";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "admin de una tienda",
@@ -27,6 +28,12 @@ export default async function RegistroPage({
   // estado real en vez de confiar en session.user.tenantId directo.
   const user = session?.user ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
 
+  // Una cuenta dueña ya tiene su única tienda. Si vuelve a /registro (por
+  // un botón viejo, un marcador o una sesión JWT anterior), no le mostramos
+  // nuevamente el alta ni le pedimos cerrar sesión: resolvemos su panel.
+  if (user?.role === "ADMIN" && user.tenantId) redirect("/mi-cuenta");
+  if (user?.role === "SUPER_ADMIN") redirect("/platform");
+
   // Volviendo de Google con un código de revendedor en la URL (ver
   // registro-form.tsx) — se guarda acá, antes de decidir a dónde seguir.
   if (ref && user && user.role === "CUSTOMER" && !user.tenantId && !user.pendingReferralCode) {
@@ -36,8 +43,7 @@ export default async function RegistroPage({
   if (user && user.role === "CUSTOMER" && !user.tenantId) {
     // Se registró antes pero no terminó — lo mandamos directo a donde
     // quedó, en vez de hacerlo pasar por "Crear cuenta" de nuevo.
-    if (user.onboardingPaidAt) redirect("/registro/datos");
-    if (user.pendingPlanId) redirect("/registro/pago");
+    if (user.pendingPlanId) redirect("/registro/datos");
     // Ya eligió "ser socio" antes (tiene código) y no está a mitad de crear
     // una tienda — no tiene sentido volver a preguntarle "¿qué querés
     // hacer?" cada vez que entra. Directo a su panel; "crear mi tienda"
@@ -54,29 +60,20 @@ export default async function RegistroPage({
     <main className="min-h-screen bg-[#030712] text-white lg:grid lg:grid-cols-2">
       {/* Panel de marca — solo desktop. En mobile alcanza con el logo del
           card del form, no hace falta duplicar la propuesta de valor. */}
-      <section className="relative hidden overflow-hidden border-r border-white/10 lg:flex lg:flex-col lg:justify-between lg:px-14 lg:py-12 xl:px-20">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(255,90,54,0.16),transparent_55%)]"
-        />
+      <section className="hidden overflow-hidden border-r border-white/10 lg:flex lg:flex-col lg:items-center lg:justify-center lg:px-14 lg:py-12 xl:px-20">
+        <div className="w-full max-w-md">
+          <Image src="/yaa-logo-clean.svg" alt="yaa" width={835} height={478} className="h-7 w-auto object-contain" />
 
-        <Image src="/yaa-logo-clean.svg" alt="yaa" width={835} height={478} className="relative h-8 w-auto object-contain" />
-
-        <div className="relative max-w-md">
-          <p className="mb-4 text-xs font-bold uppercase tracking-[.18em] text-[#ff5a36]">
-            Pedidos online para gastronomía y negocios de cercanía
-          </p>
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
+          <h1 className="mt-6 text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
             Tu propia tienda online, lista en minutos.
           </h1>
-          <p className="mt-5 leading-relaxed text-white/60">
-            Publicá tu catálogo, recibí pedidos y cobrá como quieras. Sin instalaciones, sin técnicos y sin comisión por venta.
+          <p className="mt-3 leading-relaxed text-white/60">
+            Publicá tu catálogo y recibí pedidos, sin instalaciones ni comisión por venta.
           </p>
 
-          <ul className="mt-7 flex flex-col gap-2.5 text-sm text-white/70">
+          <ul className="mt-5 flex flex-col gap-2 text-sm text-white/70">
             <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />0% de comisión sobre tus ventas</li>
-            <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />10 días para probar, sin tarjeta</li>
-            <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />Cancelás cuando quieras</li>
+            <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />Condiciones claras antes de elegir</li>
           </ul>
 
           <Image
@@ -84,11 +81,9 @@ export default async function RegistroPage({
             alt="Tienda YAA vista en computadora y celular"
             width={1448}
             height={1086}
-            className="mt-10 h-auto w-full max-w-md object-contain"
+            className="mt-6 h-auto w-full max-w-sm object-contain"
           />
         </div>
-
-        <p className="relative text-xs text-white/35">yaa — pedidos online sin comisión</p>
       </section>
 
       {/* Panel del formulario */}
@@ -98,7 +93,7 @@ export default async function RegistroPage({
             <Image src="/yaa-logo-clean.svg" alt="yaa" width={835} height={478} className="h-8 w-auto object-contain lg:hidden" />
             <div className="flex flex-col items-center gap-0.5">
               <h2 className="text-xl font-semibold">Creá tu tienda</h2>
-              <p className="text-sm text-white/50">Empezá gratis, sin instalaciones.</p>
+              <p className="text-sm text-white/50">Creá tu cuenta, sin instalaciones.</p>
             </div>
           </div>
 
@@ -111,6 +106,7 @@ export default async function RegistroPage({
             </Suspense>
           </div>
         </div>
+        <div className="mt-7"><OnboardingCredit /></div>
       </section>
     </main>
   );

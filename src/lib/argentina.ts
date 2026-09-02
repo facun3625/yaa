@@ -50,6 +50,7 @@ export const BUSINESS_CATEGORIES = [
 export const REFERRAL_SOURCES = [
   "Instagram",
   "Google",
+  "Un revendedor",
   "Me lo recomendó alguien",
   "Ya tenía otra tienda con yaa",
   "Otro",

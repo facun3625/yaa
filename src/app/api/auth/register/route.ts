@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
+import { REGISTER_RULE, clientIp, isRateLimited, recordFailure } from "@/lib/rate-limit";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Ingresá tu nombre"),
@@ -18,6 +19,16 @@ export async function POST(request: Request) {
   if (!tenant) {
     return NextResponse.json({ error: "Tienda no encontrada" }, { status: 404 });
   }
+
+  // Freno para que nadie llene la base de cuentas basura desde un script.
+  const ipKey = `register-ip:${clientIp(request.headers)}`;
+  if (await isRateLimited(ipKey, REGISTER_RULE)) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Probá de nuevo en un rato." },
+      { status: 429 },
+    );
+  }
+  await recordFailure(ipKey);
 
   const body = await request.json();
   const parsed = registerSchema.safeParse(body);
