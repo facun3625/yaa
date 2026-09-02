@@ -783,16 +783,112 @@ function VariantRow({
             <Label className="text-xs">SKU / código interno (opcional)</Label>
             <Input value={variant.sku} onChange={(e) => onChange({ sku: e.target.value })} />
           </div>
-          <StockGroupPicker
-            idPrefix={`variant-stock-${variant.key}`}
-            groups={sharedStockGroups}
-            value={stockSelection}
-            onChange={(next) =>
-              onChange({ stockGroupId: next.mode === "individual" ? "__solo__" : next.sharedGroupId })
-            }
-          />
+          {count > 1 ? (
+            // Con 2+ variantes hay "las demás" con quien compartir un pozo
+            // nuevo — sin esto, "Compartir stock" quedaba deshabilitado
+            // para siempre si la tienda todavía no tenía ningún grupo
+            // armado de antes (mismo control que ya usa el alta de
+            // producto, ver VariantStockControl en new-product-form.tsx).
+            <VariantStockControl
+              value={variant.stockGroupId}
+              onChange={(stockGroupId) => onChange({ stockGroupId })}
+              groups={sharedStockGroups}
+            />
+          ) : (
+            <StockGroupPicker
+              idPrefix={`variant-stock-${variant.key}`}
+              groups={sharedStockGroups}
+              value={stockSelection}
+              onChange={(next) =>
+                onChange({ stockGroupId: next.mode === "individual" ? "__solo__" : next.sharedGroupId })
+              }
+            />
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Mismo control que new-product-form.tsx: acá sí hay "las demás" variantes
+// con las que compartir un pozo nuevo, así que "Compartir stock" no queda
+// atado a que ya exista un grupo armado de antes.
+function VariantStockControl({
+  value,
+  onChange,
+  groups,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  groups: { id: string; name: string }[];
+}) {
+  const { containerRef } = useAdminTheme();
+  const mode = value === "__solo__" ? "individual" : value === "__siblings__" ? "siblings" : "shared";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-xs">Stock</Label>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => onChange("__siblings__")}
+          className={cn(
+            "flex-1 rounded-md border px-2 py-1 text-center text-[0.65rem] font-medium transition-colors",
+            mode === "siblings"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border text-muted-foreground",
+          )}
+        >
+          Con las demás
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("__solo__")}
+          className={cn(
+            "flex-1 rounded-md border px-2 py-1 text-center text-[0.65rem] font-medium transition-colors",
+            mode === "individual"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border text-muted-foreground",
+          )}
+        >
+          Individual
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(groups.some((g) => g.id === value) ? value : (groups[0]?.id ?? "__solo__"))}
+          disabled={groups.length === 0}
+          className={cn(
+            "flex-1 rounded-md border px-2 py-1 text-center text-[0.65rem] font-medium transition-colors disabled:opacity-40",
+            mode === "shared"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border text-muted-foreground",
+          )}
+        >
+          Compartir con...
+        </button>
+      </div>
+      {mode === "shared" && (
+        <Select value={value} onValueChange={(v) => onChange(String(v))}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Elegí un grupo">{groups.find((g) => g.id === value)?.name}</SelectValue>
+          </SelectTrigger>
+          <SelectContent container={containerRef}>
+            {groups.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {mode === "individual"
+          ? "Tiene su propio pozo de stock, sin compartir con nada más."
+          : mode === "siblings"
+            ? "Comparte un pozo nuevo con las demás variantes que también digan \"Con las demás\"."
+            : "Comparte un único total por fecha con todo lo que esté en ese grupo."} La cantidad se
+        carga por fecha, no acá — Cómo vendés, pestaña &quot;Stock&quot;.
+      </p>
     </div>
   );
 }

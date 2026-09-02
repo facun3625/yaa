@@ -64,5 +64,12 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Sin excluir /uploads/ (fotos de producto, logos, favicons subidos por
+  // cada tienda) y el resto de los archivos estáticos, el proxy corre
+  // sobre ellos igual que sobre cualquier página — la doc de Next.js
+  // (proxy.md) avisa exactamente de esto: "auth logic or redirects can
+  // unintentionally block CSS, JS, or images from loading".
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|uploads/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|txt|xml)$).*)",
+  ],
 };
