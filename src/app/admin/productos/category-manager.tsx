@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ export function CategoryManager({ categories, defaultOpen }: { categories: Categ
 }
 
 function CategoryRow({ category }: { category: Category }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [togglePending, startToggleTransition] = useTransition();
@@ -63,6 +65,7 @@ function CategoryRow({ category }: { category: Category }) {
             try {
               await renameCategory(category.id, formData);
               setEditing(false);
+              router.refresh();
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Error al renombrar");
             }
@@ -101,6 +104,7 @@ function CategoryRow({ category }: { category: Category }) {
             startToggleTransition(async () => {
               try {
                 await toggleCategoryActive(category.id, active);
+                router.refresh();
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Error");
               }
@@ -119,6 +123,7 @@ function CategoryRow({ category }: { category: Category }) {
             startTransition(async () => {
               try {
                 await deleteCategory(category.id);
+                router.refresh();
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Error al borrar");
               }
@@ -133,6 +138,7 @@ function CategoryRow({ category }: { category: Category }) {
 }
 
 function NewCategoryForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [iconKey, setIconKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
@@ -146,6 +152,7 @@ function NewCategoryForm() {
             await createCategory(formData);
             formRef.current?.reset();
             setIconKey((k) => k + 1);
+            router.refresh();
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "Error al crear");
           }

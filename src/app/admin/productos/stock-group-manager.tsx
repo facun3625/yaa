@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ function QtyField({
 }
 
 function StockGroupRow({ group }: { group: StockGroup }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(group.name);
@@ -106,6 +108,11 @@ function StockGroupRow({ group }: { group: StockGroup }) {
         formData.set("defaultStockQuantity", unlimited ? "" : qty);
         await updateStockGroup(group.id, formData);
         setEditing(false);
+        // revalidatePath del lado del servidor solo marca la caché como
+        // vieja — esta hoja (Sheet) ya está montada, así que sin este
+        // refresh explícito se queda mostrando los datos de cuando se
+        // abrió, aunque el guardado haya salido bien.
+        router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Error al guardar");
       }
@@ -151,6 +158,7 @@ function StockGroupRow({ group }: { group: StockGroup }) {
             startTransition(async () => {
               try {
                 await deleteStockGroup(group.id);
+                router.refresh();
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Error al borrar");
               }
@@ -165,6 +173,7 @@ function StockGroupRow({ group }: { group: StockGroup }) {
 }
 
 function NewStockGroupForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [unlimited, setUnlimited] = useState(false);
@@ -188,6 +197,7 @@ function NewStockGroupForm() {
         setName("");
         setUnlimited(false);
         setQty("");
+        router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Error al crear");
       }
