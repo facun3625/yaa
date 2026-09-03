@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.googleusercontent.com",
       },
+      {
+        // Fotos de stock para el catálogo de la tienda demo (ver
+        // scripts/seed-demo-pizzeria.ts) — Wikimedia Commons, libres de uso.
+        protocol: "https",
+        hostname: "*.wikimedia.org",
+      },
     ],
   },
   experimental: {
