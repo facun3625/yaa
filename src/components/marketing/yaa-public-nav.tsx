@@ -60,6 +60,10 @@ export function YaaPublicNav() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          {/* <a> nativo, no <Link>: /demo es un route handler que redirige
+              a otro subdominio (yaa.com.ar/demo -> demoN.yaa.com.ar/login),
+              mismo criterio que "Cerrar sesión" más abajo. */}
+          <a href="/demo" className="yaa-btn yaa-btn-secondary py-2! px-4! text-sm">Ver demo</a>
           {session?.user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -117,6 +121,7 @@ export function YaaPublicNav() {
             <Link href="/#socios" onClick={(e) => handleAnchorClick(e, "socios")} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Socios</Link>
             <Link href="/preguntas-frecuentes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Preguntas frecuentes</Link>
             <Link href="/#contacto" onClick={(e) => handleAnchorClick(e, "contacto")} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Contacto</Link>
+            <a href="/demo" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-[#ff7658] transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Ver demo</a>
             <div className="my-2 h-px bg-white/10" />
             {session?.user ? (
               <div className="grid gap-2">

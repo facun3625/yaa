@@ -93,6 +93,8 @@ export function YaaLanding({
 
             <div className="mt-8 flex flex-wrap gap-3">
               <a href={signupHref} className="yaa-btn yaa-btn-primary h-12 px-6 text-base shadow-lg shadow-[#ff5a36]/20">Creá tu tienda <ArrowRight className="size-[18px]" /></a>
+              {/* <a> nativo, no <Link>: /demo redirige a otro subdominio. */}
+              <a href="/demo" className="yaa-btn yaa-btn-secondary h-12 px-6 text-base">Ver demo en vivo</a>
               <AnchorScrollLink id="funcionalidades" className="yaa-btn yaa-btn-secondary h-12 px-6 text-base">Ver cómo funciona</AnchorScrollLink>
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs font-medium text-white/50"><Check className="size-4 text-[#ff7658]" />Sin instalaciones · 0% de comisión por venta</p>
