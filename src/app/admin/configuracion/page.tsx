@@ -23,7 +23,7 @@ export default async function ConfiguracionPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const { tenant, features } = await requireTenantAdminWithPlan();
+  const { session, tenant, features } = await requireTenantAdminWithPlan();
   const { tab } = await searchParams;
   const initialTab = tab && VALID_TABS.has(tab) ? tab : "general";
   const [settings, aboutContent, popupConfig, smtpSettings, orderEmailMessage, telegramSettings, tenantDomain, seoSettings] = await Promise.all([
@@ -136,6 +136,8 @@ export default async function ConfiguracionPage({
               verified={tenantDomain.customDomainVerified}
               verificationRecordName={tenantDomain.customDomain ? verificationRecordName(tenantDomain.customDomain) : null}
               verificationToken={tenantDomain.customDomainToken}
+              contactName={session.user.name ?? ""}
+              contactEmail={session.user.email ?? ""}
             />
           </TabsContent>
         )}

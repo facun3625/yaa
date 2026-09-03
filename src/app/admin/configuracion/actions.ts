@@ -409,6 +409,42 @@ export async function removeCustomDomain() {
   revalidatePath("/admin/configuracion");
 }
 
+// Pedido de "hacelo vos por mí" — el dueño no quiere lidiar con comprar el
+// dominio y cargar los registros DNS. No compra nada solo: deja los datos
+// de contacto y el super admin lo gestiona a mano desde /platform/dominios.
+const domainRequestSchema = z.object({
+  contactName: z.string().trim().min(1, "Ingresá tu nombre"),
+  contactEmail: z.string().trim().email("Email inválido"),
+  contactPhone: z.string().trim().optional(),
+  domainOptions: z.array(z.string().trim().min(1)).min(1, "Ingresá al menos una opción de dominio").max(3),
+  notes: z.string().trim().optional(),
+});
+
+export async function createDomainRequest(formData: FormData) {
+  const { tenant } = await requireTenantAdmin();
+  await assertCustomDomainAllowed(tenant.id);
+
+  const parsed = domainRequestSchema.safeParse({
+    contactName: formData.get("contactName"),
+    contactEmail: formData.get("contactEmail"),
+    contactPhone: formData.get("contactPhone") || undefined,
+    domainOptions: JSON.parse(String(formData.get("domainOptions") ?? "[]")).filter(Boolean),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Datos inválidos");
+
+  await prisma.domainRequest.create({
+    data: {
+      tenantId: tenant.id,
+      contactName: parsed.data.contactName,
+      contactEmail: parsed.data.contactEmail,
+      contactPhone: parsed.data.contactPhone || null,
+      domainOptions: parsed.data.domainOptions,
+      notes: parsed.data.notes || null,
+    },
+  });
+}
+
 // ---------- SEO (solo tiendas con dominio propio verificado) ----------
 
 const seoSchema = z.object({

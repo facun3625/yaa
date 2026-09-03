@@ -294,6 +294,34 @@ model Tenant {
   stockMovements       StockMovement[]
   emailLogs            EmailLog[]
   whatsappLogs         WhatsappLog[]
+  domainRequests       DomainRequest[]
+}
+
+enum DomainRequestStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+// Cuando el dueño de una tienda no quiere ocuparse él mismo del trámite del
+// dominio propio (comprarlo, darlo de alta, cargar los registros DNS) pide
+// que YAA lo haga por él — ver el botón "Lo hacemos por vos" en Dominio
+// propio. Sin automatización de compra: el super admin la gestiona a mano
+// desde /platform/dominios.
+model DomainRequest {
+  id            String              @id @default(cuid())
+  tenantId      String
+  contactName   String
+  contactEmail  String
+  contactPhone  String?
+  domainOptions String[]
+  notes         String?
+  status        DomainRequestStatus @default(PENDING)
+  createdAt     DateTime            @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 // ---------- Auth ----------
@@ -472,7 +500,7 @@ model Product {
 // incluso de productos distintos — ej: "Pizzas grandes" repartido entre
 // todos los gustos que vienen en tamaño grande).
 model StockGroup {
-  id                   String @id @default(cuid())
+  id                   String  @id @default(cuid())
   tenantId             String
   name                 String
   defaultStockQuantity Int?

@@ -10,17 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useConfirm } from "@/components/admin/confirm-provider";
 import { setCustomDomain, verifyCustomDomain, removeCustomDomain } from "./actions";
+import { DomainRequestForm } from "./domain-request-form";
 
 export function CustomDomainForm({
   domain,
   verified,
   verificationRecordName,
   verificationToken,
+  contactName,
+  contactEmail,
 }: {
   domain: string | null;
   verified: boolean;
   verificationRecordName: string | null;
   verificationToken: string | null;
+  contactName: string;
+  contactEmail: string;
 }) {
   const [value, setValue] = useState(domain ?? "");
   const [pending, startTransition] = useTransition();
@@ -73,10 +78,19 @@ export function CustomDomainForm({
 
   return (
     <div className="flex flex-col gap-5 rounded-lg border p-4">
-      <p className="text-xs text-muted-foreground">
-        Conectá tu propio dominio (ej: <span className="font-mono">pedidos.mimarca.com</span>) para que la tienda
-        se vea ahí en vez de tu subdominio. Necesitás poder editar el DNS de ese dominio.
-      </p>
+      <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+        <p>
+          Conectá tu propio dominio (ej: <span className="font-mono">pedidos.mimarca.com</span>) para que la tienda
+          se vea ahí en vez de tu subdominio.
+        </p>
+        <p>
+          Vos tenés que comprarlo (en NIC Argentina si es <span className="font-mono">.com.ar</span>, o cualquier
+          registrador si no) y tenerlo alojado en algún lugar donde puedas editar sus registros DNS. Después de
+          guardarlo acá abajo te vamos a mostrar qué registro tenés que agregar para verificar que es tuyo.
+        </p>
+      </div>
+
+      {!domain && <DomainRequestForm contactName={contactName} contactEmail={contactEmail} />}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-2">
