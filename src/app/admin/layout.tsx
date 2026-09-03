@@ -8,6 +8,7 @@ import { PromptProvider } from "@/components/admin/prompt-provider";
 import { prisma } from "@/lib/prisma";
 import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import { getStockAlerts } from "@/lib/stock-alerts";
+import { isDemoSubdomain, DEMO_LAST_ACTIVE_KEY } from "@/lib/demo";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -40,6 +41,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           .then(Boolean)
       : prisma.deliveryDate.findFirst({ where: { tenantId: tenant.id } }).then(Boolean),
   ]);
+
+  // Mientras alguien navega el panel de una copia demo, la mantiene
+  // "ocupada" — así /demo no manda a una segunda visita ahí mismo.
+  if (isDemoSubdomain(tenant.subdomain)) {
+    await prisma.settings.upsert({
+      where: { tenantId_key: { tenantId: tenant.id, key: DEMO_LAST_ACTIVE_KEY } },
+      update: { value: new Date().toISOString() },
+      create: { tenantId: tenant.id, key: DEMO_LAST_ACTIVE_KEY, value: new Date().toISOString() },
+    });
+  }
+
   const planInfo = currentPlan ? { name: currentPlan.name, canUpgrade: Boolean(topPlan && currentPlan.order < topPlan.order) } : null;
   const notifications: AdminNotification[] = [
     ...recentInquiries.map((item) => ({ id: item.id, type: "INQUIRY" as const, title: "Nueva consulta", detail: item.serviceTitle, href: `/admin/consultas/${item.id}`, createdAt: item.createdAt.toISOString() })),

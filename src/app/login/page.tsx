@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { getCurrentTenant } from "@/lib/tenant";
 import { getStoreSettings } from "@/lib/settings";
+import { isDemoSubdomain } from "@/lib/demo";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -39,7 +40,7 @@ export default async function LoginPage({
 
         <div className="px-6 py-6">
           <Suspense>
-            <LoginForm tenantId={tenant.id} />
+            <LoginForm tenantId={tenant.id} isDemo={isDemoSubdomain(tenant.subdomain)} />
           </Suspense>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "@/lib/demo";
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -94,16 +95,18 @@ function FloatingInput({
   );
 }
 
-export function LoginForm({ tenantId }: { tenantId: string }) {
+export function LoginForm({ tenantId, isDemo }: { tenantId: string; isDemo?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // En la demo, el objetivo es siempre el panel — no tiene sentido llevar a
+  // un prospecto de vuelta al carrito o a donde sea que haya venido.
+  const callbackUrl = isDemo ? "/admin" : (searchParams.get("callbackUrl") ?? "/");
   const magicToken = searchParams.get("token");
 
   const [loading, setLoading] = useState(false);
   const [autoLoggingIn, setAutoLoggingIn] = useState(!!magicToken);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  const [loginEmail, setLoginEmail] = useState(isDemo ? DEMO_ADMIN_EMAIL : "");
+  const [loginPassword, setLoginPassword] = useState(isDemo ? DEMO_ADMIN_PASSWORD : "");
 
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
@@ -199,6 +202,26 @@ export function LoginForm({ tenantId }: { tenantId: string }) {
       <div className="flex w-full flex-col items-center gap-3 py-6 text-center">
         <Loader2Icon className="size-6 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Entrando a tu tienda...</p>
+      </div>
+    );
+  }
+
+  // Tienda de demostración: un solo camino, ya completado — nada de Google
+  // ni "Crear cuenta", para que un prospecto no termine armándose una cuenta
+  // de cliente por error en vez de ver el panel.
+  if (isDemo) {
+    return (
+      <div className="flex w-full flex-col gap-4">
+        <p className="text-center text-xs text-muted-foreground">
+          Datos de acceso ya completados — solo tocá &quot;Ingresar&quot;.
+        </p>
+        <form onSubmit={handleLogin} className="flex flex-col gap-3">
+          <FloatingInput id="login-email" label="Email" type="email" required value={loginEmail} onChange={setLoginEmail} />
+          <FloatingInput id="login-password" label="Contraseña" type="password" required value={loginPassword} onChange={setLoginPassword} />
+          <Button type="submit" disabled={loading} size="lg" className="mt-1 w-full rounded-full">
+            {loading ? "Ingresando..." : "Ingresar al panel"}
+          </Button>
+        </form>
       </div>
     );
   }

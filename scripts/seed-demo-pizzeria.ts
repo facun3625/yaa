@@ -1,8 +1,11 @@
-// Crea (o recrea desde cero) una tienda demo completa — "Pizzería Demo" —
-// para mostrarle el panel y la tienda a cualquier prospecto sin usar datos
-// reales. Re-ejecutable: si "demo" ya existe, la borra entera primero (mismo
-// orden de borrado que deleteTenant en platform/tiendas/[tenantId]/actions.ts)
-// y la vuelve a armar de cero.
+// Crea (o recrea desde cero) el pool de tiendas demo — "Pizzería Demo",
+// idéntica en cada copia — para mostrarle el panel y la tienda a cualquier
+// prospecto sin usar datos reales. Son varias copias (DEMO_SUBDOMAINS) y no
+// una sola porque la clave de acceso es pública: con un solo tenant, dos
+// visitas simultáneas se pisan entre sí (ver /demo, que reparte a quien
+// entra hacia la copia libre hace más tiempo). Re-ejecutable: cada copia que
+// ya exista se borra entera primero (mismo orden que deleteTenant en
+// platform/tiendas/[tenantId]/actions.ts) y se vuelve a armar de cero.
 //
 // Uso: npx tsx --env-file=.env scripts/seed-demo-pizzeria.ts
 import bcrypt from "bcryptjs";
@@ -10,26 +13,25 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { logGroupStockMovement } from "@/lib/stock-movements";
 import { awardPointsForOrder } from "@/lib/points";
+import { DEMO_SUBDOMAINS, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "@/lib/demo";
 
-const SUBDOMAIN = "demo";
-const ADMIN_EMAIL = "demo@yaa.com.ar";
-const ADMIN_PASSWORD = "Demo1234!";
+const ADMIN_EMAIL = DEMO_ADMIN_EMAIL;
+const ADMIN_PASSWORD = DEMO_ADMIN_PASSWORD;
 const CUSTOMER_EMAIL = "cliente@demo.yaa.com.ar";
 
-const img = (path: string) => `https://thumb.wikimedia.org/wikipedia/commons/thumb/${path}`;
-
+// Fotos propias del dueño, en public/demo-photos/ (versionadas en git —
+// viajan solas al deploy, a diferencia de /public/uploads que es gitignored).
 const PHOTOS = {
-  muzzarella: img("d/de/Margherita_pizza_on_plate.jpg/960px-Margherita_pizza_on_plate.jpg"),
-  napolitana: img("4/46/Pizza-napoletana.jpg/960px-Pizza-napoletana.jpg"),
-  fugazzeta: img("7/7e/Vegetarian_Pizza.jpg/960px-Vegetarian_Pizza.jpg"),
-  especial: img("a/a1/Pizza_Tradici%C3%B3n_Napolitana.jpg/960px-Pizza_Tradici%C3%B3n_Napolitana.jpg"),
-  empanadas: img("d/d6/Fried_Argentine_beef_empanadas.jpg/960px-Fried_Argentine_beef_empanadas.jpg"),
-  cocaCola: img("a/ad/Mexican_Coca_Cola.jpg/960px-Mexican_Coca_Cola.jpg"),
-  aguaConGas: img("7/7e/San_Pellegrino_bottle_for_sparkling_water_.jpg/960px-San_Pellegrino_bottle_for_sparkling_water_.jpg"),
-  cerveza: img("1/11/Beer_bottles_2018_G1.jpg/960px-Beer_bottles_2018_G1.jpg"),
-  tiramisu: img("0/0d/Tiramisu_dessert.jpg/960px-Tiramisu_dessert.jpg"),
-  flan: img("4/43/Homemade_Flan.jpg/960px-Homemade_Flan.jpg"),
-  helado: img("9/9c/A_Cup_of_Chocolate_Ice_Cream_from_dinner_meal.jpg/960px-A_Cup_of_Chocolate_Ice_Cream_from_dinner_meal.jpg"),
+  margarita: "/demo-photos/Margarita.png",
+  muzzarela: "/demo-photos/Muzarela.png",
+  napolitana: "/demo-photos/napolitana.png",
+  roque: "/demo-photos/Roque.png",
+  empanada: "/demo-photos/empanada.jpg",
+  coca: "/demo-photos/coca.jpg",
+  cerveza: "/demo-photos/ceveza.jpg",
+  hamburguesa: "/demo-photos/hamburguesa.jpg",
+  lomito: "/demo-photos/lomito.jpg",
+  cover: "/demo-photos/cover.jpg",
 };
 
 const GUEST_NAMES = [
@@ -88,10 +90,11 @@ function pastDays(count: number): Date[] {
   return days.reverse();
 }
 
-async function main() {
-  const existing = await prisma.tenant.findUnique({ where: { subdomain: SUBDOMAIN } });
+async function seedOneDemoTenant(subdomain: string) {
+  console.log(`\n=== ${subdomain} ===`);
+  const existing = await prisma.tenant.findUnique({ where: { subdomain } });
   if (existing) {
-    console.log(`Ya existía "${SUBDOMAIN}" (${existing.id}) — borrando para recrear...`);
+    console.log(`Ya existía "${subdomain}" (${existing.id}) — borrando para recrear...`);
     await deleteExistingDemoTenant(existing.id);
   }
 
@@ -106,7 +109,7 @@ async function main() {
   console.log("Creando tenant...");
   const tenant = await prisma.tenant.create({
     data: {
-      subdomain: SUBDOMAIN,
+      subdomain,
       status: "ACTIVE",
       orderingMode: "WEEKLY_HOURS",
       businessCategory: "Gastronomía",
@@ -157,7 +160,7 @@ async function main() {
       { tenantId: tenant.id, key: "store_whatsapp", value: "+541122223333" },
       { tenantId: tenant.id, key: "store_email", value: "hola@pizzeriademo.com.ar" },
       { tenantId: tenant.id, key: "store_instagram", value: "pizzeriademo" },
-      { tenantId: tenant.id, key: "store_cover_url", value: PHOTOS.napolitana },
+      { tenantId: tenant.id, key: "store_cover_url", value: PHOTOS.cover },
     ],
   });
 
@@ -210,21 +213,21 @@ async function main() {
   const baseGrande = await prisma.stockGroup.create({
     data: { tenantId: tenant.id, name: "Bases grandes", isIndividual: false, defaultStockQuantity: 35 },
   });
-  const postresPool = await prisma.stockGroup.create({
-    data: { tenantId: tenant.id, name: "Postres del día", isIndividual: false, defaultStockQuantity: 20 },
-  });
 
-  const pizzas = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Pizzas", icon: "🍕" } });
-  const empanadasCat = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Empanadas", icon: "🥟" } });
-  const bebidas = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Bebidas", icon: "🥤" } });
-  const postres = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Postres", icon: "🍰" } });
+  // "icon" es el nombre de un ícono Lucide de una lista fija (ver
+  // src/lib/category-icons.ts), no un emoji libre — CategoryIcon.tsx cae al
+  // ícono default (UtensilsCrossed) para cualquier valor que no matchee.
+  const pizzas = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Pizzas", icon: "Pizza" } });
+  const bebidas = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Bebidas", icon: "CupSoda" } });
+  const sandwiches = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Sandwiches", icon: "Sandwich" } });
+  const empanadasCat = await prisma.productCategory.create({ data: { tenantId: tenant.id, name: "Empanadas", icon: "Croissant" } });
 
   type PizzaDef = { name: string; photo: string; prices: [number, number, number] };
   const pizzaDefs: PizzaDef[] = [
-    { name: "Muzzarella", photo: PHOTOS.muzzarella, prices: [6500, 8900, 11500] },
+    { name: "Margarita", photo: PHOTOS.margarita, prices: [6800, 9200, 11800] },
+    { name: "Muzzarella", photo: PHOTOS.muzzarela, prices: [6500, 8900, 11500] },
     { name: "Napolitana", photo: PHOTOS.napolitana, prices: [7200, 9800, 12500] },
-    { name: "Fugazzeta", photo: PHOTOS.fugazzeta, prices: [7500, 10200, 13000] },
-    { name: "Especial (jamón y morrones)", photo: PHOTOS.especial, prices: [7800, 10500, 13500] },
+    { name: "Roquefort", photo: PHOTOS.roque, prices: [8200, 11000, 14200] },
   ];
   for (const p of pizzaDefs) {
     await prisma.product.create({
@@ -264,7 +267,7 @@ async function main() {
       categoryId: empanadasCat.id,
       name: "Empanadas",
       active: true,
-      images: { create: [{ url: PHOTOS.empanadas, order: 0 }] },
+      images: { create: [{ url: PHOTOS.empanada, order: 0 }] },
       variants: {
         create: empanadaFlavors.map((f, i) => ({
           gusto: f.gusto,
@@ -279,12 +282,13 @@ async function main() {
   const empanadaVariants = empanadasProduct.variants.map((v) => ({ id: v.id, price: Number(v.price), stockGroupId: v.stockGroupId }));
 
   const bebidaDefs = [
-    { name: "Coca-Cola 500ml", photo: PHOTOS.cocaCola, price: 1800 },
-    { name: "Agua con gas 500ml", photo: PHOTOS.aguaConGas, price: 1500 },
-    { name: "Cerveza Rubia 1L", photo: PHOTOS.cerveza, price: 3200 },
+    { name: "Coca-Cola 500ml", photo: PHOTOS.coca, price: 1800 },
+    { name: "Cerveza 1L", photo: PHOTOS.cerveza, price: 3200 },
   ];
   const bebidaVariants: { id: string; price: number }[] = [];
   for (const b of bebidaDefs) {
+    // Bebidas: pozo individual "sin límite" (defaultStockQuantity null) —
+    // no se trackea, casi nunca se agotan de verdad.
     const pool = await prisma.stockGroup.create({
       data: { tenantId: tenant.id, name: b.name, isIndividual: true, defaultStockQuantity: null },
     });
@@ -302,26 +306,62 @@ async function main() {
     bebidaVariants.push({ id: product.variants[0].id, price: b.price });
   }
 
-  const postreDefs = [
-    { name: "Flan casero", photo: PHOTOS.flan, price: 2800 },
-    { name: "Tiramisú", photo: PHOTOS.tiramisu, price: 3500 },
-    { name: "Helado 1/4kg", photo: PHOTOS.helado, price: 3200 },
+  // Sandwiches: pozo individual CON límite por cada tamaño — a diferencia de
+  // las bebidas, sí se preparan en tanda y se pueden agotar en el día.
+  const sandwichVariants: { id: string; price: number; stockGroupId: string }[] = [];
+  const sandwichPools: Awaited<ReturnType<typeof prisma.stockGroup.create>>[] = [];
+
+  const hamburguesaSizes: { tamano: string; price: number; defaultStock: number }[] = [
+    { tamano: "Simple", price: 8000, defaultStock: 25 },
+    { tamano: "Doble", price: 9500, defaultStock: 20 },
+    { tamano: "Triple", price: 11500, defaultStock: 12 },
   ];
-  const postreVariants: { id: string; price: number }[] = [];
-  for (const p of postreDefs) {
-    const product = await prisma.product.create({
-      data: {
-        tenantId: tenant.id,
-        categoryId: postres.id,
-        name: p.name,
-        active: true,
-        images: { create: [{ url: p.photo, order: 0 }] },
-        variants: { create: [{ price: p.price, order: 0, stockGroupId: postresPool.id }] },
+  const hamburguesaPools = await Promise.all(
+    hamburguesaSizes.map((s) =>
+      prisma.stockGroup.create({
+        data: { tenantId: tenant.id, name: `Hamburguesa ${s.tamano.toLowerCase()}`, isIndividual: true, defaultStockQuantity: s.defaultStock },
+      }),
+    ),
+  );
+  sandwichPools.push(...hamburguesaPools);
+  const hamburguesaProduct = await prisma.product.create({
+    data: {
+      tenantId: tenant.id,
+      categoryId: sandwiches.id,
+      name: "Hamburguesa Cheddar",
+      active: true,
+      images: { create: [{ url: PHOTOS.hamburguesa, order: 0 }] },
+      variants: {
+        create: hamburguesaSizes.map((s, i) => ({
+          tamano: s.tamano,
+          price: s.price,
+          order: i,
+          stockGroupId: hamburguesaPools[i].id,
+        })),
       },
-      include: { variants: true },
-    });
-    postreVariants.push({ id: product.variants[0].id, price: p.price });
+    },
+    include: { variants: true },
+  });
+  for (const v of hamburguesaProduct.variants) {
+    sandwichVariants.push({ id: v.id, price: Number(v.price), stockGroupId: v.stockGroupId });
   }
+
+  const lomitoPool = await prisma.stockGroup.create({
+    data: { tenantId: tenant.id, name: "Lomito completo", isIndividual: true, defaultStockQuantity: 25 },
+  });
+  sandwichPools.push(lomitoPool);
+  const lomitoProduct = await prisma.product.create({
+    data: {
+      tenantId: tenant.id,
+      categoryId: sandwiches.id,
+      name: "Lomito completo",
+      active: true,
+      images: { create: [{ url: PHOTOS.lomito, order: 0 }] },
+      variants: { create: [{ price: 11000, order: 0, stockGroupId: lomitoPool.id }] },
+    },
+    include: { variants: true },
+  });
+  sandwichVariants.push({ id: lomitoProduct.variants[0].id, price: 11000, stockGroupId: lomitoPool.id });
 
   // Todas las variantes reales de pizza (con su id, precio y pozo), para
   // armar pedidos de ejemplo abajo.
@@ -346,7 +386,7 @@ async function main() {
 
   console.log("Generando historial de pedidos (últimos días hábiles)...");
   const historyDays = pastDays(9);
-  const allPools = [baseChica, baseMediana, baseGrande, ...empanadaPools, postresPool];
+  const allPools = [baseChica, baseMediana, baseGrande, ...empanadaPools, ...sandwichPools];
   let guestIdx = 0;
 
   for (const day of historyDays) {
@@ -365,7 +405,7 @@ async function main() {
     const ordersToday = 2 + Math.floor(Math.random() * 2); // 2 o 3
     for (let i = 0; i < ordersToday; i++) {
       const itemCount = 1 + Math.floor(Math.random() * 2); // 1 o 2 ítems
-      const catalog = [...allPizzaVariants, ...empanadaVariants, ...bebidaVariants, ...postreVariants];
+      const catalog = [...allPizzaVariants, ...empanadaVariants, ...bebidaVariants, ...sandwichVariants];
       const picks = Array.from({ length: itemCount }, () => {
         const pick = catalog[Math.floor(Math.random() * catalog.length)];
         return { variantId: pick.id, price: Number(pick.price), quantity: 1 + Math.floor(Math.random() * 2) };
@@ -405,9 +445,9 @@ async function main() {
         // no hay nada que descontar para esas, se saltean.
         const byGroup = new Map<string, number>();
         for (const p of picks) {
-          const stockGroupId =
-            [...allPizzaVariants, ...empanadaVariants].find((v) => v.id === p.variantId)?.stockGroupId ??
-            (postreVariants.some((v) => v.id === p.variantId) ? postresPool.id : null);
+          const stockGroupId = [...allPizzaVariants, ...empanadaVariants, ...sandwichVariants].find(
+            (v) => v.id === p.variantId,
+          )?.stockGroupId;
           if (!stockGroupId) continue;
           byGroup.set(stockGroupId, (byGroup.get(stockGroupId) ?? 0) + p.quantity);
         }
@@ -435,11 +475,16 @@ async function main() {
     }
   }
 
-  console.log("\nListo ✅");
-  console.log(`Tienda: https://${SUBDOMAIN}.${process.env.ROOT_DOMAIN ?? "localhost:3010"}`);
-  console.log(`Admin:  https://${SUBDOMAIN}.${process.env.ROOT_DOMAIN ?? "localhost:3010"}/login`);
-  console.log(`  usuario: ${ADMIN_EMAIL}`);
-  console.log(`  clave:   ${ADMIN_PASSWORD}`);
+  console.log(`Listo — https://${subdomain}.${process.env.ROOT_DOMAIN ?? "localhost:3010"}`);
+}
+
+async function main() {
+  for (const subdomain of DEMO_SUBDOMAINS) {
+    await seedOneDemoTenant(subdomain);
+  }
+  console.log(`\nTodo listo ✅ (${DEMO_SUBDOMAINS.length} copias)`);
+  console.log(`Entrada única: https://${process.env.ROOT_DOMAIN ?? "localhost:3010"}/demo`);
+  console.log(`Admin de cada copia: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   console.log(`Cliente demo (para ver Puntos): ${CUSTOMER_EMAIL} / Cliente1234!`);
 }
 

@@ -11,6 +11,7 @@ import { getCurrentTenant } from "@/lib/tenant";
 import { WhatsAppWidget } from "@/components/whatsapp-widget";
 import { FloatingCartButton } from "@/components/floating-cart-button";
 import { getPlatformMarketingSettings } from "@/lib/platform-billing";
+import { isDemoSubdomain } from "@/lib/demo";
 
 async function isPlatformRoute() {
   const pathname = (await headers()).get("x-pathname") ?? "";
@@ -152,7 +153,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={htmlClassName}>
       <body className="min-h-full flex flex-col">
-        <StoreSettingsProvider value={{ ...storeSettings, tenantId: tenant.id }}>
+        <StoreSettingsProvider value={{ ...storeSettings, tenantId: tenant.id, isDemo: isDemoSubdomain(tenant.subdomain) }}>
           <Providers>
             {children}
             <WhatsAppWidget />

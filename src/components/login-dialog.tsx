@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useLoginDialog } from "@/lib/login-dialog-context";
 import { useStoreSettings } from "@/lib/store-settings-context";
 import { requestPasswordReset } from "@/app/recuperar-contrasena/actions";
+import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "@/lib/demo";
 
 type Screen = "auth" | "forgot" | "forgot-sent";
 
@@ -76,15 +77,15 @@ function FloatingInput({
 export function LoginDialog() {
   const { isOpen, closeLogin } = useLoginDialog();
   const router = useRouter();
-  const { storeName, logoUrl, tenantId } = useStoreSettings();
+  const { storeName, logoUrl, tenantId, isDemo } = useStoreSettings();
 
 
   const [screen, setScreen] = useState<Screen>("auth");
   const [loading, setLoading] = useState(false);
   const [forgotPending, startForgotTransition] = useTransition();
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  const [loginEmail, setLoginEmail] = useState(isDemo ? DEMO_ADMIN_EMAIL : "");
+  const [loginPassword, setLoginPassword] = useState(isDemo ? DEMO_ADMIN_PASSWORD : "");
 
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
@@ -121,7 +122,11 @@ export function LoginDialog() {
       return;
     }
     handleClose();
-    router.refresh();
+    if (isDemo) {
+      router.push("/admin");
+    } else {
+      router.refresh();
+    }
   }
 
   async function handleRegister(e: React.FormEvent) {
@@ -214,7 +219,25 @@ export function LoginDialog() {
         <div className="flex flex-col gap-5 overflow-y-auto px-6 py-6">
 
           {/* ── PANTALLA: auth ── */}
-          {screen === "auth" && (
+          {screen === "auth" && isDemo && (
+            // Tienda de demostración: un solo camino, ya completado — nada
+            // de Google ni "Crear cuenta", para que un prospecto no termine
+            // armándose una cuenta de cliente por error en vez de ver el panel.
+            <div className="flex flex-col gap-3">
+              <p className="text-center text-xs text-muted-foreground">
+                Datos de acceso ya completados — solo tocá &quot;Ingresar&quot;.
+              </p>
+              <form onSubmit={handleLogin} className="flex flex-col gap-3">
+                <FloatingInput id="dlg-login-email" label="Email" type="email" required value={loginEmail} onChange={setLoginEmail} />
+                <FloatingInput id="dlg-login-password" label="Contraseña" type="password" required value={loginPassword} onChange={setLoginPassword} />
+                <Button type="submit" disabled={loading} size="lg" className="mt-1 w-full rounded-full">
+                  {loading ? "Ingresando..." : "Ingresar al panel"}
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {screen === "auth" && !isDemo && (
             <>
               <Button
                 type="button"
