@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { StoreHero } from "@/components/catalog/store-hero";
 import { StoreFooter } from "@/components/catalog/store-footer";
 import { RichText } from "@/components/catalog/rich-text";
@@ -19,9 +19,11 @@ export default async function ServicesPage({ params }: { params: Promise<{ id?: 
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
   });
   if (!services.length) notFound();
-  if (!id?.length) redirect(`/servicios/${services[0].id}`);
-  const current = services.find((service) => service.id === id[0]);
-  if (!current || id.length > 1) notFound();
+  if (id && id.length > 1) notFound();
+  const current = id?.length
+    ? services.find((service) => service.id === id[0])
+    : services[0];
+  if (!current) notFound();
 
   return (
     <div className="flex flex-1 flex-col">
