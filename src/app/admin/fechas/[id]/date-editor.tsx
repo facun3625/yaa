@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeftIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { ArrowLeftIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { useConfirm } from "@/components/admin/confirm-provider";
 import { usePrompt } from "@/components/admin/prompt-provider";
 import { cn } from "@/lib/utils";
@@ -45,7 +38,6 @@ type Group = {
   quantitySold: number;
 };
 
-type Product = { id: string; name: string; stockGroupId: string };
 type QtyState = { unlimited: boolean; value: string };
 type Slot = { id: string; label: string };
 type Movement = {
@@ -70,9 +62,6 @@ const movementDateFormatter = new Intl.DateTimeFormat("es-AR", {
   timeStyle: "short",
 });
 
-const SOLO = "__solo__";
-const SOLO_KEY_PREFIX = "solo:";
-
 const MODES: { value: StockMode; label: string; hint: string }[] = [
   { value: "BY_GROUP", label: "Con stock", hint: "Cada variante descuenta de su pozo — individual o compartido, según cómo esté armado el producto." },
   { value: "UNLIMITED", label: "Sin límite", hint: "No se trackea stock. Todo está siempre disponible en esta fecha." },
@@ -86,7 +75,6 @@ export function DateEditor({
   deliveryDate,
   stockMode: initialStockMode,
   groups,
-  allProducts,
   pickupEnabled,
   dateSlots,
   defaultSlots,
@@ -96,7 +84,6 @@ export function DateEditor({
   deliveryDate: DeliveryDateData;
   stockMode: StockMode;
   groups: Group[];
-  allProducts: Product[];
   pickupEnabled: boolean;
   dateSlots: Slot[];
   defaultSlots: Slot[];
@@ -128,9 +115,6 @@ export function DateEditor({
   const [open, setOpen] = useState(deliveryDate.status === "OPEN");
   const [stockMode, setStockMode] = useState<StockMode>(initialStockMode);
 
-  const [productGroupId, setProductGroupId] = useState<Record<string, string>>(() =>
-    Object.fromEntries(allProducts.map((p) => [p.id, p.stockGroupId])),
-  );
   const [groupQty, setGroupQty] = useState<Record<string, QtyState>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, qtyFrom(g.quantityAvailable)])),
   );
@@ -146,7 +130,6 @@ export function DateEditor({
   const [baseline, setBaseline] = useState(() => ({
     ...fieldsFrom(deliveryDate),
     stockMode: initialStockMode,
-    productGroupId: Object.fromEntries(allProducts.map((p) => [p.id, p.stockGroupId])),
     groupQty: Object.fromEntries(groups.map((g) => [g.id, qtyFrom(g.quantityAvailable)])),
     slots: dateSlots.map((s) => ({ ...s })),
   }));
@@ -157,11 +140,9 @@ export function DateEditor({
   // del render (no en un efecto) siguiendo el patrón de React para
   // "resetear estado cuando cambia una prop".
   const groupsSignature = groups.map((g) => `${g.id}:${g.quantityAvailable}`).join(",");
-  const membershipSignature = allProducts.map((p) => `${p.id}:${p.stockGroupId}`).join(",");
   const slotsSignature = dateSlots.map((s) => `${s.id}:${s.label}`).join(",");
 
   const [syncedGroups, setSyncedGroups] = useState(groupsSignature);
-  const [syncedMembership, setSyncedMembership] = useState(membershipSignature);
   const [syncedSlots, setSyncedSlots] = useState(slotsSignature);
 
   if (groupsSignature !== syncedGroups) {
@@ -169,12 +150,6 @@ export function DateEditor({
     const fresh = Object.fromEntries(groups.map((g) => [g.id, qtyFrom(g.quantityAvailable)]));
     setGroupQty(fresh);
     setBaseline((prev) => ({ ...prev, groupQty: fresh }));
-  }
-  if (membershipSignature !== syncedMembership) {
-    setSyncedMembership(membershipSignature);
-    const fresh = Object.fromEntries(allProducts.map((p) => [p.id, p.stockGroupId]));
-    setProductGroupId(fresh);
-    setBaseline((prev) => ({ ...prev, productGroupId: fresh }));
   }
   if (slotsSignature !== syncedSlots) {
     setSyncedSlots(slotsSignature);
@@ -193,7 +168,6 @@ export function DateEditor({
     notes,
     open,
     stockMode,
-    productGroupId,
     groupQty,
     slots,
   });
@@ -218,7 +192,7 @@ export function DateEditor({
     }
 
     if (stockMode === "BY_GROUP") {
-      for (const g of effectiveGroups) {
+      for (const g of groups) {
         const q = groupQty[g.id];
         if (q && !q.unlimited && Math.max(0, Number(q.value) || 0) < g.quantitySold) {
           toast.error(`"${g.name}" ya vendió ${g.quantitySold} — no puede quedar disponible por debajo de eso`);
@@ -240,22 +214,9 @@ export function DateEditor({
 
         if (stockMode === "BY_GROUP") {
           for (const [groupId, qty] of Object.entries(groupQty)) {
-            if (groupId.startsWith(SOLO_KEY_PREFIX)) continue;
             formData.set(`stockgroup_${groupId}`, qty.unlimited ? "" : qty.value);
           }
         }
-
-        const changedAssignments: Record<string, { target: string; quantity?: string }> = {};
-        for (const [productId, target] of Object.entries(productGroupId)) {
-          if (baseline.productGroupId[productId] === target) continue;
-          const entry: { target: string; quantity?: string } = { target };
-          if (target === SOLO) {
-            const q = groupQty[`${SOLO_KEY_PREFIX}${productId}`] ?? { unlimited: true, value: "" };
-            entry.quantity = q.unlimited ? "" : q.value;
-          }
-          changedAssignments[productId] = entry;
-        }
-        formData.set("groupAssignments", JSON.stringify(changedAssignments));
 
         const added = slots.filter((s) => newSlotIds.has(s.id)).map((s) => s.label);
         formData.set("pickupSlots", JSON.stringify({ added, removedIds: removedSlotIds }));
@@ -269,7 +230,6 @@ export function DateEditor({
           notes,
           open,
           stockMode,
-          productGroupId,
           groupQty,
           slots,
         });
@@ -291,51 +251,11 @@ export function DateEditor({
     setNotes(baseline.notes);
     setOpen(baseline.open);
     setStockMode(baseline.stockMode);
-    setProductGroupId(baseline.productGroupId);
     setGroupQty(baseline.groupQty);
     setSlots(baseline.slots);
     setNewSlotIds(new Set());
     setRemovedSlotIds([]);
     toast("Cambios descartados");
-  }
-
-  // Vista efectiva de "qué grupo tiene qué productos" a partir de las
-  // asignaciones pendientes (no de lo que hay guardado). Los productos que
-  // pidieron pasar a individual ("__solo__") aparecen como su propio
-  // renglón temporal hasta que se guarde.
-  const productNamesById = new Map(allProducts.map((p) => [p.id, p.name]));
-  const membersByGroupId = new Map<string, string[]>();
-  const soloPendingIds: string[] = [];
-  for (const p of allProducts) {
-    const target = productGroupId[p.id] ?? p.stockGroupId;
-    if (target === SOLO) {
-      soloPendingIds.push(p.id);
-    } else {
-      membersByGroupId.set(target, [...(membersByGroupId.get(target) ?? []), p.name]);
-    }
-  }
-  const effectiveGroups: Group[] = [
-    ...groups
-      .filter((g) => (membersByGroupId.get(g.id)?.length ?? 0) > 0)
-      .map((g) => ({ ...g, productNames: membersByGroupId.get(g.id)! })),
-    ...soloPendingIds.map((productId) => ({
-      id: `${SOLO_KEY_PREFIX}${productId}`,
-      name: productNamesById.get(productId) ?? "",
-      productNames: [productNamesById.get(productId) ?? ""],
-      quantityAvailable: null,
-      quantitySold: 0,
-    })),
-  ];
-
-  function applyGroupAssignment(groupId: string, selectedProductIds: Set<string>) {
-    setProductGroupId((prev) => {
-      const next = { ...prev };
-      for (const productId of Object.keys(next)) {
-        if (selectedProductIds.has(productId)) next[productId] = groupId;
-        else if (next[productId] === groupId) next[productId] = SOLO;
-      }
-      return next;
-    });
   }
 
   async function applyToAllGroups() {
@@ -349,7 +269,7 @@ export function DateEditor({
     const n = String(Math.max(0, Number(value) || 0));
     setGroupQty((prev) => {
       const next = { ...prev };
-      for (const g of effectiveGroups) next[g.id] = { unlimited: false, value: n };
+      for (const g of groups) next[g.id] = { unlimited: false, value: n };
       return next;
     });
   }
@@ -522,31 +442,29 @@ export function DateEditor({
 
           {stockMode === "BY_GROUP" && (
             <div className="flex flex-col gap-4 border-t pt-4">
-              {effectiveGroups.length > 1 && (
+              {groups.length > 1 && (
                 <Button type="button" variant="outline" size="sm" onClick={applyToAllGroups} className="self-end">
                   Aplicar a todos
                 </Button>
               )}
-              {effectiveGroups.length === 0 && (
+              {groups.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   Todavía no hay productos activos. Cargalos primero en Productos.
                 </p>
               )}
               <div className="flex flex-col gap-3">
-                {effectiveGroups.map((g) => (
+                {groups.map((g) => (
                   <GroupStockRow
                     key={g.id}
                     group={g}
-                    allProducts={allProducts}
-                    selected={
-                      new Set(Object.entries(productGroupId).filter(([, gid]) => gid === g.id).map(([pid]) => pid))
-                    }
-                    onApplyMembers={(ids) => applyGroupAssignment(g.id, ids)}
                     qty={groupQty[g.id] ?? { unlimited: true, value: "" }}
                     onChange={(qty) => setGroupQty((prev) => ({ ...prev, [g.id]: qty }))}
                   />
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Para cambiar qué productos comparten pozo, hacelo desde Productos → Grupos de stock.
+              </p>
             </div>
           )}
         </TabsContent>
@@ -685,20 +603,13 @@ export function DateEditor({
 
 function GroupStockRow({
   group,
-  allProducts,
-  selected,
-  onApplyMembers,
   qty,
   onChange,
 }: {
   group: Group;
-  allProducts: Product[];
-  selected: Set<string>;
-  onApplyMembers: (ids: Set<string>) => void;
   qty: QtyState;
   onChange: (qty: QtyState) => void;
 }) {
-  const isPendingSolo = group.id.startsWith(SOLO_KEY_PREFIX);
   const prompt = usePrompt();
   const sold = group.quantitySold;
   const hasValue = !qty.unlimited && qty.value.trim() !== "";
@@ -732,14 +643,9 @@ function GroupStockRow({
           <span className="truncate text-xs text-muted-foreground">
             {group.productNames.length > 1
               ? `Compartido entre: ${group.productNames.join(", ")}`
-              : isPendingSolo
-                ? "Individual (sin guardar)"
-                : group.productNames[0]}
+              : group.productNames[0]}
           </span>
         </div>
-        {!isPendingSolo && (
-          <GroupMembersButton group={group} allProducts={allProducts} selected={selected} onApply={onApplyMembers} />
-        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -787,84 +693,6 @@ function GroupStockRow({
         </p>
       )}
     </div>
-  );
-}
-
-function GroupMembersButton({
-  group,
-  allProducts,
-  selected,
-  onApply,
-}: {
-  group: Group;
-  allProducts: Product[];
-  selected: Set<string>;
-  onApply: (ids: Set<string>) => void;
-}) {
-  const { containerRef } = useAdminTheme();
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<Set<string>>(selected);
-
-  function toggle(id: string) {
-    setDraft((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setDraft(selected);
-        setOpen(next);
-      }}
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Elegir qué productos son parte de "${group.name}"`}
-        onClick={() => {
-          setDraft(selected);
-          setOpen(true);
-        }}
-      >
-        <UsersIcon className="size-4" />
-      </Button>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto" container={containerRef}>
-        <SheetHeader>
-          <SheetTitle>Productos en &quot;{group.name}&quot;</SheetTitle>
-        </SheetHeader>
-        <div className="flex flex-col gap-3 px-4 pb-6">
-          <p className="text-xs text-muted-foreground">
-            Los productos tildados comparten el mismo pozo de stock. Destildá uno para que vuelva
-            a tener stock individual. Esto queda pendiente hasta que apretés &quot;Guardar
-            cambios&quot;.
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {allProducts.map((p) => (
-              <label key={p.id} className="flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm">
-                <input type="checkbox" checked={draft.has(p.id)} onChange={() => toggle(p.id)} />
-                {p.name}
-              </label>
-            ))}
-          </div>
-          <Button
-            type="button"
-            disabled={draft.size === 0}
-            onClick={() => {
-              onApply(draft);
-              setOpen(false);
-            }}
-          >
-            Aplicar
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 

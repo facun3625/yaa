@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenantAdmin } from "@/lib/require-admin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { expireStaleDates } from "@/lib/schedule";
+import { expireStaleDates, toDateAtNoon, todayKey } from "@/lib/schedule";
 import { resolveWeeklyAvailability } from "@/lib/availability";
 import { FechasSubnav } from "./fechas-subnav";
 import { ModeSwitcher } from "./mode-switcher";
@@ -54,12 +54,16 @@ export default async function DeliveryDatesPage() {
 }
 
 async function WeeklyHoursPanel({ tenantId, manuallyClosed }: { tenantId: string; manuallyClosed: boolean }) {
-  const [rules, availability] = await Promise.all([
+  const [rules, availability, todayDate] = await Promise.all([
     prisma.weeklyScheduleRule.findMany({
       where: { tenantId },
       include: { windows: { orderBy: { order: "asc" } } },
     }),
     resolveWeeklyAvailability(tenantId),
+    prisma.deliveryDate.findFirst({
+      where: { tenantId, date: toDateAtNoon(todayKey()) },
+      include: { _count: { select: { stockGroupStock: true } } },
+    }),
   ]);
 
   const byWeekday = new Map(rules.map((r) => [r.weekday, r]));
@@ -90,6 +94,27 @@ async function WeeklyHoursPanel({ tenantId, manuallyClosed }: { tenantId: string
     <div className="flex flex-col gap-4">
       <ManualCloseToggle manuallyClosed={manuallyClosed} liveOpen={availability.open} statusLabel={statusLabel} />
 
+      {todayDate && (
+        <Link
+          href={`/admin/fechas/${todayDate.id}`}
+          className="flex items-center justify-between gap-3 rounded-lg border p-3 active:bg-accent"
+        >
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Stock de hoy</span>
+            <span className="text-xs text-muted-foreground">
+              {todayDate.stockMode === "UNLIMITED"
+                ? "Sin límite — no se trackea stock"
+                : todayDate._count.stockGroupStock > 0
+                  ? `${todayDate._count.stockGroupStock} ${todayDate._count.stockGroupStock === 1 ? "grupo" : "grupos"} con stock cargado`
+                  : "Sin stock cargado — vendiendo sin límite"}
+            </span>
+          </div>
+          {todayDate.stockMode === "BY_GROUP" && todayDate._count.stockGroupStock === 0 && (
+            <Badge variant="secondary">Revisar</Badge>
+          )}
+        </Link>
+      )}
+
       <div className="rounded-lg border p-4">
         <WeeklyScheduleForm initialDays={initialDays} />
       </div>
@@ -110,6 +135,7 @@ async function ScheduledSalesPanel({ tenantId }: { tenantId: string }) {
     <div className="flex flex-col gap-3">
       {deliveryDates.map((d) => {
         const full = d.capacity != null && d._count.orders >= d.capacity;
+        const noStockLoaded = d.stockMode === "BY_GROUP" && d._count.stockGroupStock === 0;
         return (
           <Link
             key={d.id}
@@ -128,6 +154,7 @@ async function ScheduledSalesPanel({ tenantId }: { tenantId: string }) {
             </div>
             <div className="flex shrink-0 gap-1.5">
               {full && <Badge variant="secondary">Completa</Badge>}
+              {noStockLoaded && d.status === "OPEN" && <Badge variant="secondary">Sin stock cargado</Badge>}
               <Badge variant={d.status === "OPEN" ? "default" : d.status === "EXPIRED" ? "outline" : "secondary"}>
                 {d.status === "OPEN" ? "Abierta" : d.status === "EXPIRED" ? "Vencida" : "Cerrada"}
               </Badge>

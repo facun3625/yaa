@@ -252,3 +252,50 @@ export async function impersonateTenant(tenantId: string) {
   const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
   redirect(`${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}/login?token=${token}&callbackUrl=%2Fadmin`);
 }
+
+// Aplicar un código a mano, a una tienda que ya existe — para cuando el
+// canje no pasó por el alta (código pactado después, por ejemplo). Mismas
+// validaciones que el canje automático de registro/datos/actions.ts
+// (activo, no vencido, no agotado). PromotionRedemption.tenantId es único:
+// si la tienda ya tenía un código aplicado, éste lo reemplaza y le devuelve
+// el uso al código anterior, todo en la misma transacción.
+export async function applyPromotionToTenant(tenantId: string, code: string) {
+  await requireSuperAdmin();
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) throw new Error("Ingresá un código");
+
+  await prisma.$transaction(async (tx) => {
+    const promotion = await tx.promotionCode.findUnique({ where: { code: normalized } });
+    if (!promotion || !promotion.active) throw new Error("El código promocional ya no está activo");
+    if (promotion.validUntil && promotion.validUntil < new Date()) throw new Error("El código promocional venció");
+    if (promotion.maxUses !== null && promotion.usedCount >= promotion.maxUses) {
+      throw new Error("El código promocional alcanzó su límite de usos");
+    }
+
+    const previous = await tx.promotionRedemption.findUnique({ where: { tenantId } });
+    if (previous) {
+      await tx.promotionRedemption.delete({ where: { tenantId } });
+      await tx.promotionCode.update({ where: { id: previous.promotionCodeId }, data: { usedCount: { decrement: 1 } } });
+    }
+
+    const now = new Date();
+    const endsAt = new Date(now);
+    endsAt.setMonth(endsAt.getMonth() + promotion.durationMonths);
+
+    await tx.promotionRedemption.create({
+      data: { promotionCodeId: promotion.id, tenantId, startsAt: now, endsAt },
+    });
+    await tx.promotionCode.update({ where: { id: promotion.id }, data: { usedCount: { increment: 1 } } });
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        nextBillingDate: endsAt,
+        billingStatus: "ACTIVE",
+        trialEndsAt: null,
+        billingNotes: `Bonificada ${promotion.durationMonths} meses con código ${promotion.code}`,
+      },
+    });
+  });
+
+  revalidateTenant(tenantId);
+}

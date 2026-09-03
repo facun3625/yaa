@@ -12,22 +12,39 @@ export function toHHMM(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-// Solo hace falta sembrar los grupos con un stock por defecto configurado
-// (los demás nacen "sin límite" hasta que alguien cargue una cantidad).
+// Para cada pozo, arrastra la cantidad cargada en la fecha anterior más
+// cercana (así el admin no recarga los mismos números a mano cada vez); si
+// un pozo no tenía fila ahí (nunca se cargó, o no había fecha anterior), cae
+// a su defaultStockQuantity. Un pozo sigue naciendo "sin límite" solo si
+// tanto la fecha anterior como el default coinciden en eso.
 export async function seedDefaultStock(tenantId: string, deliveryDateId: string) {
-  const stockGroups = await prisma.stockGroup.findMany({
-    where: { tenantId, defaultStockQuantity: { not: null } },
+  const current = await prisma.deliveryDate.findUnique({
+    where: { id: deliveryDateId },
+    select: { date: true },
   });
+  if (!current) return;
+
+  const [stockGroups, previous] = await Promise.all([
+    prisma.stockGroup.findMany({ where: { tenantId } }),
+    prisma.deliveryDate.findFirst({
+      where: { tenantId, id: { not: deliveryDateId }, date: { lt: current.date } },
+      orderBy: { date: "desc" },
+      include: { stockGroupStock: true },
+    }),
+  ]);
   if (stockGroups.length === 0) return;
 
-  await prisma.stockGroupStock.createMany({
-    data: stockGroups.map((g) => ({
-      stockGroupId: g.id,
-      deliveryDateId,
-      quantityAvailable: g.defaultStockQuantity,
-    })),
-    skipDuplicates: true,
-  });
+  const previousByGroup = new Map(previous?.stockGroupStock.map((s) => [s.stockGroupId, s.quantityAvailable]) ?? []);
+
+  const rows = stockGroups
+    .map((g) => {
+      const quantityAvailable = previousByGroup.has(g.id) ? previousByGroup.get(g.id)! : g.defaultStockQuantity;
+      return quantityAvailable != null ? { stockGroupId: g.id, deliveryDateId, quantityAvailable } : null;
+    })
+    .filter((row): row is { stockGroupId: string; deliveryDateId: string; quantityAvailable: number } => row != null);
+  if (rows.length === 0) return;
+
+  await prisma.stockGroupStock.createMany({ data: rows, skipDuplicates: true });
 }
 
 /**

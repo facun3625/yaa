@@ -43,14 +43,25 @@ export async function createDeliveryDate(formData: FormData) {
   });
   assertCutoffNotAfterDelivery(parsed.date, parsed.cutoffAt);
 
+  // Arrastra el modo de stock de la fecha anterior más cercana — si la
+  // tienda siempre vende "sin límite", no la hace volver a BY_GROUP (el
+  // default del schema) en cada fecha nueva.
+  const newDate = toDateAtNoon(parsed.date);
+  const previous = await prisma.deliveryDate.findFirst({
+    where: { tenantId: tenant.id, date: { lt: newDate } },
+    orderBy: { date: "desc" },
+    select: { stockMode: true },
+  });
+
   const deliveryDate = await prisma.deliveryDate.create({
     data: {
       tenantId: tenant.id,
-      date: toDateAtNoon(parsed.date),
+      date: newDate,
       orderOpenAt: parsed.orderOpenAt ? new Date(parsed.orderOpenAt) : null,
       cutoffAt: parsed.cutoffAt ? new Date(parsed.cutoffAt) : null,
       capacity: parsed.capacity ? Number(parsed.capacity) : null,
       notes: parsed.notes,
+      stockMode: previous?.stockMode ?? "BY_GROUP",
     },
   });
   await seedDefaultStock(tenant.id, deliveryDate.id);
@@ -60,14 +71,13 @@ export async function createDeliveryDate(formData: FormData) {
 
 // Guarda de una sola vez TODO lo que se tocó en la pantalla de la fecha:
 // datos (estado, horarios, capacidad, notas), modalidad de stock, el stock
-// cargado por pozo, a qué pozo pertenece cada variante, y las franjas
-// especiales — un solo botón "Guardar cambios" para toda la pantalla, nada
-// se persiste antes de eso.
+// cargado por pozo, y las franjas especiales — un solo botón "Guardar
+// cambios" para toda la pantalla, nada se persiste antes de eso. A qué pozo
+// pertenece cada variante NO se toca acá — es configuración del producto,
+// no de una fecha puntual, y se edita desde Productos → Grupos de stock.
 const saveDeliveryDateSchema = deliveryDateSchema.extend({
   open: z.string(),
   stockMode: z.enum(["BY_GROUP", "UNLIMITED"]),
-  // variantId -> groupId real, o "__solo__" para pedir un pozo individual nuevo.
-  groupAssignments: z.string().optional(),
   // { added: string[] (labels nuevos), removedIds: string[] (franjas existentes a borrar) }
   pickupSlots: z.string().optional(),
 });
@@ -86,16 +96,12 @@ export async function saveDeliveryDate(id: string, formData: FormData) {
     notes: formData.get("notes") || undefined,
     open: formData.get("open"),
     stockMode: formData.get("stockMode"),
-    groupAssignments: formData.get("groupAssignments") || undefined,
     pickupSlots: formData.get("pickupSlots") || undefined,
   });
   assertCutoffNotAfterDelivery(parsed.date, parsed.cutoffAt);
 
   const groupEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith("stockgroup_"));
 
-  const groupAssignments: Record<string, { target: string; quantity?: string }> = parsed.groupAssignments
-    ? JSON.parse(parsed.groupAssignments)
-    : {};
   const pickupSlotsPayload: { added: string[]; removedIds: string[] } = parsed.pickupSlots
     ? JSON.parse(parsed.pickupSlots)
     : { added: [], removedIds: [] };
@@ -139,61 +145,6 @@ export async function saveDeliveryDate(id: string, formData: FormData) {
       });
     }
 
-    for (const [variantId, entry] of Object.entries(groupAssignments)) {
-      const variant = await tx.productVariant.findFirst({
-        where: { id: variantId, product: { tenantId: tenant.id } },
-        include: { product: true },
-      });
-      if (!variant) continue;
-      const label = [variant.product.name, [variant.gusto, variant.tamano].filter(Boolean).join(" · ")]
-        .filter(Boolean)
-        .join(" — ");
-
-      let targetGroupId = entry.target;
-      if (entry.target === "__solo__") {
-        let name = label;
-        let attempt = 1;
-        let soloId: string | null = null;
-        while (soloId == null) {
-          try {
-            const solo = await tx.stockGroup.create({ data: { tenantId: tenant.id, name } });
-            soloId = solo.id;
-          } catch {
-            attempt += 1;
-            name = `${label} (${attempt})`;
-            if (attempt > 20) throw new Error("No se pudo crear el pozo individual");
-          }
-        }
-        targetGroupId = soloId;
-      } else {
-        const group = await tx.stockGroup.findUnique({ where: { id: entry.target, tenantId: tenant.id } });
-        if (!group) continue;
-      }
-
-      await tx.productVariant.update({ where: { id: variantId }, data: { stockGroupId: targetGroupId } });
-
-      if (entry.quantity !== undefined) {
-        const raw = entry.quantity.trim();
-        const quantityAvailable = raw === "" ? null : Math.max(0, Number(raw) || 0);
-        const before = await tx.stockGroupStock.findUnique({
-          where: { stockGroupId_deliveryDateId: { stockGroupId: targetGroupId, deliveryDateId: id } },
-        });
-        await tx.stockGroupStock.upsert({
-          where: { stockGroupId_deliveryDateId: { stockGroupId: targetGroupId, deliveryDateId: id } },
-          update: { quantityAvailable },
-          create: { stockGroupId: targetGroupId, deliveryDateId: id, quantityAvailable },
-        });
-        await logGroupStockMovement(tx, {
-          tenantId: tenant.id,
-          deliveryDateId: id,
-          stockGroupId: targetGroupId,
-          reason: "ADJUSTMENT",
-          delta: adjustmentDelta(before?.quantityAvailable ?? null, quantityAvailable),
-          note: entry.target === "__solo__" ? "Grupo individual nuevo" : undefined,
-        });
-      }
-    }
-
     if (pickupSlotsPayload.removedIds.length > 0) {
       await tx.pickupSlot.deleteMany({
         where: { id: { in: pickupSlotsPayload.removedIds }, tenantId: tenant.id, deliveryDateId: id },
@@ -216,7 +167,6 @@ export async function saveDeliveryDate(id: string, formData: FormData) {
   });
 
   revalidatePath("/admin/fechas");
-  revalidatePath("/admin/productos");
   revalidatePath(`/admin/fechas/${id}`);
 }
 

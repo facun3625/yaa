@@ -37,7 +37,7 @@ export default async function EditDeliveryDatePage({
       }),
       prisma.stockGroup.findMany({
         where: { tenantId: tenant.id },
-        include: { stock: { where: { deliveryDateId: id } } },
+        select: { id: true, name: true, isIndividual: true, stock: { where: { deliveryDateId: id } } },
         orderBy: { name: "asc" },
       }),
       prisma.fulfillmentMethodConfig
@@ -65,7 +65,10 @@ export default async function EditDeliveryDatePage({
   if (!deliveryDate) notFound();
 
   // Toda variante activa pertenece a un pozo (propio o compartido); acá se
-  // arma una sola lista, un pozo de stock por grupo.
+  // arma una sola lista, un pozo de stock por grupo. Un pozo individual
+  // (isIndividual) muestra el nombre del producto en vivo en vez del nombre
+  // guardado del pozo — ese nombre es solo una foto del momento en que se
+  // creó y queda desactualizado si el producto se renombra después.
   const groups = stockGroups
     .map((g) => {
       const memberNames = variants
@@ -74,7 +77,7 @@ export default async function EditDeliveryDatePage({
       const stock = g.stock[0];
       return {
         id: g.id,
-        name: g.name,
+        name: g.isIndividual && memberNames[0] ? memberNames[0] : g.name,
         productNames: memberNames,
         quantityAvailable: stock?.quantityAvailable ?? null,
         quantitySold: stock?.quantitySold ?? 0,
@@ -96,11 +99,6 @@ export default async function EditDeliveryDatePage({
       }}
       stockMode={deliveryDate.stockMode}
       groups={groups}
-      allProducts={variants.map((v) => ({
-        id: v.id,
-        name: variantLabel(v.product.name, v.gusto, v.tamano),
-        stockGroupId: v.stockGroupId,
-      }))}
       pickupEnabled={pickupEnabled}
       dateSlots={dateSlots}
       defaultSlots={defaultSlots}

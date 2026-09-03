@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/format";
 import { TenantStatusToggle } from "./tenant-status-toggle";
 import { BillingPanel } from "./billing-panel";
 import { DeleteTenantButton } from "./delete-tenant-button";
+import { ApplyPromotionForm } from "./apply-promotion-form";
 import { impersonateTenant } from "./actions";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
@@ -122,6 +123,8 @@ export default async function TenantDetailPage({
           </span>
         )}
       </div>
+
+      <ApplyPromotionForm tenantId={tenant.id} hasRedemption={Boolean(tenant.promotionRedemption)} />
 
       <BillingPanel
         tenantId={tenant.id}

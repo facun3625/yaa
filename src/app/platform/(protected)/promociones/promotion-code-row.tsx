@@ -2,9 +2,12 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { Trash2Icon } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
-import { togglePromotionCode } from "./actions";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/admin/confirm-provider";
+import { deletePromotionCode, togglePromotionCode } from "./actions";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 
@@ -19,6 +22,7 @@ export function PromotionCodeRow({ promotion }: { promotion: {
   validUntil: string | null;
 } }) {
   const [pending, startTransition] = useTransition();
+  const confirm = useConfirm();
   const exhausted = promotion.maxUses !== null && promotion.usedCount >= promotion.maxUses;
   const expired = promotion.validUntil !== null && new Date(promotion.validUntil) < new Date();
 
@@ -29,6 +33,24 @@ export function PromotionCodeRow({ promotion }: { promotion: {
         toast.success(active ? "Código activado" : "Código pausado");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "No se pudo actualizar");
+      }
+    });
+  }
+
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `¿Borrar "${promotion.code}"?`,
+      description: "No se puede deshacer.",
+      confirmLabel: "Sí, borrar",
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      try {
+        await deletePromotionCode(promotion.id);
+        toast.success("Código borrado");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No se pudo borrar");
       }
     });
   }
@@ -50,10 +72,15 @@ export function PromotionCodeRow({ promotion }: { promotion: {
           {promotion.validUntil ? ` · vence ${dateFormatter.format(new Date(promotion.validUntil))}` : " · sin vencimiento"}
         </p>
       </div>
-      <label className="flex shrink-0 items-center gap-2 text-sm font-medium">
-        <Switch checked={promotion.active} onCheckedChange={toggle} disabled={pending || exhausted || expired} />
-        {promotion.active ? "Activo" : "Pausado"}
-      </label>
+      <div className="flex shrink-0 items-center gap-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <Switch checked={promotion.active} onCheckedChange={toggle} disabled={pending || exhausted || expired} />
+          {promotion.active ? "Activo" : "Pausado"}
+        </label>
+        <Button type="button" variant="ghost" size="icon" disabled={pending} onClick={handleDelete} title="Borrar código">
+          <Trash2Icon className="size-4 text-destructive" />
+        </Button>
+      </div>
     </article>
   );
 }

@@ -147,6 +147,16 @@ async function ensureDedicatedStockGroup(tx: Pick<PrismaClient, "stockGroup">, t
 // existe), "__solo__" (pozo propio, nuevo), o "__siblings__" (comparte un
 // pozo nuevo con las demás variantes de este mismo guardado que también
 // pidieron "__siblings__" — se crea una sola vez y se reusa).
+// Pozos individuales (isIndividual) que quedaron en 0 miembros —variante
+// movida a otro pozo, borrada, o el producto entero borrado— son basura:
+// nadie los va a reusar porque su nombre es una foto vieja de esa variante
+// puntual. Los pozos armados a mano en "Grupos de stock" (isIndividual:
+// false) nunca se tocan acá aunque queden vacíos — el admin los creó a
+// propósito y puede querer reusarlos.
+async function cleanupOrphanIndividualStockGroups(tx: Pick<PrismaClient, "stockGroup">, tenantId: string) {
+  await tx.stockGroup.deleteMany({ where: { tenantId, isIndividual: true, variants: { none: {} } } });
+}
+
 async function resolveVariantStockGroupId(
   tx: Pick<PrismaClient, "stockGroup">,
   tenantId: string,
@@ -331,6 +341,7 @@ export async function deleteProduct(id: string) {
     throw new Error("No se puede borrar un producto con pedidos asociados. Desactivalo en su lugar.");
   }
   await prisma.product.delete({ where: { id, tenantId: tenant.id } });
+  await cleanupOrphanIndividualStockGroups(prisma, tenant.id);
   revalidatePath("/admin/productos");
   redirect("/admin/productos");
 }
@@ -466,6 +477,8 @@ export async function saveProduct(id: string, formData: FormData) {
         if (url) await tx.productImage.create({ data: { productId: id, url, order: img.order } });
       }
     }
+
+    await cleanupOrphanIndividualStockGroups(tx, tenant.id);
   });
 
   revalidatePath("/admin/productos");

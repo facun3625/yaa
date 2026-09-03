@@ -20,24 +20,26 @@ function normalizeCode(value: string) {
 
 export async function createPromotionCode(formData: FormData) {
   await requireSuperAdmin();
-  const parsed = promotionSchema.parse({
+  const parsed = promotionSchema.safeParse({
     code: normalizeCode(String(formData.get("code") ?? "")),
     description: formData.get("description") || undefined,
     durationMonths: formData.get("durationMonths"),
     maxUses: formData.get("maxUses") || undefined,
     validUntil: formData.get("validUntil") || undefined,
   });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Datos inválidos");
+  const { data: parsedData } = parsed;
 
-  const existing = await prisma.promotionCode.findUnique({ where: { code: parsed.code } });
+  const existing = await prisma.promotionCode.findUnique({ where: { code: parsedData.code } });
   if (existing) throw new Error("Ya existe un código con ese nombre");
 
   await prisma.promotionCode.create({
     data: {
-      code: parsed.code,
-      description: parsed.description || null,
-      durationMonths: parsed.durationMonths,
-      maxUses: parsed.maxUses ?? null,
-      validUntil: parsed.validUntil ? new Date(`${parsed.validUntil}T23:59:59.999-03:00`) : null,
+      code: parsedData.code,
+      description: parsedData.description || null,
+      durationMonths: parsedData.durationMonths,
+      maxUses: parsedData.maxUses ?? null,
+      validUntil: parsedData.validUntil ? new Date(`${parsedData.validUntil}T23:59:59.999-03:00`) : null,
     },
   });
   revalidatePath("/platform/promociones");
@@ -46,5 +48,20 @@ export async function createPromotionCode(formData: FormData) {
 export async function togglePromotionCode(id: string, active: boolean) {
   await requireSuperAdmin();
   await prisma.promotionCode.update({ where: { id }, data: { active } });
+  revalidatePath("/platform/promociones");
+}
+
+// Solo se puede borrar un código que nunca se usó — si ya tiene canjes, la
+// FK a PromotionRedemption lo impide (sin cascade a propósito, se pierde el
+// historial de qué tienda usó qué código). Para un código gastado, la
+// acción correcta es pausarlo, no borrarlo.
+export async function deletePromotionCode(id: string) {
+  await requireSuperAdmin();
+  const promotion = await prisma.promotionCode.findUnique({ where: { id }, select: { usedCount: true } });
+  if (!promotion) return;
+  if (promotion.usedCount > 0) {
+    throw new Error("Este código ya se usó, no se puede borrar — pausalo en cambio");
+  }
+  await prisma.promotionCode.delete({ where: { id } });
   revalidatePath("/platform/promociones");
 }
