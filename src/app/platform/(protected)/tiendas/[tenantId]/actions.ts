@@ -1,6 +1,8 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -8,6 +10,8 @@ import { requireSuperAdmin } from "@/lib/require-super-admin";
 import { generateCommissionsForPayment } from "@/lib/reseller-commission";
 import { getPlatformMercadoPagoCredentials } from "@/lib/platform-billing";
 import { updateSubscriptionBilling } from "@/lib/mercadopago";
+
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
 function revalidateTenant(tenantId: string) {
   revalidatePath(`/platform/tiendas/${tenantId}`);
@@ -219,4 +223,32 @@ export async function deleteTenant(tenantId: string) {
   });
 
   revalidatePath("/platform/tiendas");
+}
+
+// "Entrar como admin" — deja al super admin logueado como el dueño real de
+// la tienda, para poder ayudarlo sin pedirle la contraseña. Reusa el mismo
+// pase efímero de un solo uso que ya existe para cruzar de dominio (ver
+// admin/cuenta-yaa/page.tsx); auth.ts reconoce el prefijo "impersonate:" y
+// marca la sesión resultante con impersonatedBy, que es lo que hace
+// aparecer el cartel de "modo soporte" en el panel de la tienda.
+export async function impersonateTenant(tenantId: string) {
+  const session = await requireSuperAdmin();
+
+  const [tenant, admin] = await Promise.all([
+    prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { subdomain: true } }),
+    prisma.user.findFirst({ where: { tenantId, role: "ADMIN" }, orderBy: { createdAt: "asc" } }),
+  ]);
+  if (!admin) throw new Error("Esta tienda no tiene ningún admin todavía");
+
+  const token = randomBytes(32).toString("hex");
+  await prisma.verificationToken.create({
+    data: {
+      identifier: `impersonate:${session.user.id}:${admin.id}`,
+      token,
+      expires: new Date(Date.now() + 5 * 60 * 1000),
+    },
+  });
+
+  const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+  redirect(`${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}/login?token=${token}&callbackUrl=%2Fadmin`);
 }

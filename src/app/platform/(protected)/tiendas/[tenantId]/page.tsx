@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/format";
 import { TenantStatusToggle } from "./tenant-status-toggle";
 import { BillingPanel } from "./billing-panel";
 import { DeleteTenantButton } from "./delete-tenant-button";
+import { impersonateTenant } from "./actions";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 
@@ -57,9 +58,23 @@ export default async function TenantDetailPage({
           <h1 className="text-xl font-semibold">{storeName}</h1>
           <p className="text-sm text-muted-foreground">{tenant.subdomain}</p>
         </div>
-        <Badge variant={tenant.status === "ACTIVE" ? "default" : "secondary"}>
-          {tenant.status === "ACTIVE" ? "Activa" : "Suspendida"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={tenant.status === "ACTIVE" ? "default" : "secondary"}>
+            {tenant.status === "ACTIVE" ? "Activa" : "Suspendida"}
+          </Badge>
+          {tenant.users.length > 0 && (
+            // <form> nativo a propósito, sin onClick ni try/catch: la acción
+            // redirige al terminar, y ese redirect() throwea un NEXT_REDIRECT
+            // interno que un catch genérico del lado del cliente mostraría
+            // como si fuera un error real (mismo bug que ya arreglamos hoy
+            // en date-editor.tsx).
+            <form action={impersonateTenant.bind(null, tenant.id)}>
+              <Button type="submit" variant="outline" size="sm">
+                Entrar como admin
+              </Button>
+            </form>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { MenuIcon, StoreIcon, ChevronDownIcon, MoonIcon, SunIcon, PackageXIcon, BellIcon, ShoppingBagIcon, MessageSquareTextIcon, CreditCardIcon } from "lucide-react";
+import { MenuIcon, StoreIcon, ChevronDownIcon, MoonIcon, SunIcon, PackageXIcon, BellIcon, ShoppingBagIcon, MessageSquareTextIcon, CreditCardIcon, ShieldAlertIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -62,7 +62,7 @@ function initials(name?: string | null) {
 
 export type AdminNotification = { id: string; type: "ORDER" | "INQUIRY"; title: string; detail: string; href: string; createdAt: string };
 
-export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOrderCount = 0, notificationCount = 0, notifications = [], billingStatus, trialDaysLeft, features, planInfo, salesModeConfigured = true }: { storeOpen: boolean; stockAlerts: StockAlert[]; newInquiryCount?: number; newOrderCount?: number; notificationCount?: number; notifications?: AdminNotification[]; billingStatus: string; trialDaysLeft: number | null; features?: PlanFeatures; planInfo?: { name: string; canUpgrade: boolean } | null; salesModeConfigured?: boolean }) {
+export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOrderCount = 0, notificationCount = 0, notifications = [], billingStatus, trialDaysLeft, features, planInfo, salesModeConfigured = true, impersonating = false, platformUrl }: { storeOpen: boolean; stockAlerts: StockAlert[]; newInquiryCount?: number; newOrderCount?: number; notificationCount?: number; notifications?: AdminNotification[]; billingStatus: string; trialDaysLeft: number | null; features?: PlanFeatures; planInfo?: { name: string; canUpgrade: boolean } | null; salesModeConfigured?: boolean; impersonating?: boolean; platformUrl?: string }) {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { containerRef, theme, toggleTheme } = useAdminTheme();
@@ -87,6 +87,19 @@ export function AdminTopbar({ storeOpen, stockAlerts, newInquiryCount = 0, newOr
 
   return (
     <header className="sticky top-0 z-10 flex flex-col border-b bg-background/95 backdrop-blur print:hidden">
+      {impersonating && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-500/25 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 lg:px-8">
+          <span className="flex items-center gap-1.5">
+            <ShieldAlertIcon className="size-3.5 shrink-0" />
+            Estás viendo este panel en modo soporte, como el admin de esta tienda.
+          </span>
+          {platformUrl && (
+            <a href={platformUrl} className="shrink-0 font-semibold underline underline-offset-2">
+              Volver a la plataforma
+            </a>
+          )}
+        </div>
+      )}
       {!salesModeConfigured && (
         <Link
           href="/admin/fechas"

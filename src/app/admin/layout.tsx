@@ -14,8 +14,10 @@ const montserrat = Montserrat({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { tenant, features } = await requireTenantAdminWithPlan();
+  const { session, tenant, features } = await requireTenantAdminWithPlan();
   const trialDaysLeft = tenant.billingStatus === "TRIAL" && tenant.trialEndsAt
     ? Math.max(0, Math.ceil((tenant.trialEndsAt.getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000)))
     : null;
@@ -52,7 +54,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AdminSidebar newInquiryCount={newInquiryCount} newOrderCount={pendingOrderCount} features={features} planInfo={planInfo} />
           </aside>
           <div className="flex min-w-0 min-h-0 flex-1 flex-col h-full overflow-hidden">
-            <AdminTopbar storeOpen={tenant.storeOpen} stockAlerts={stockAlerts} newInquiryCount={newInquiryCount} newOrderCount={pendingOrderCount} notificationCount={newInquiryCount + pendingOrderCount} notifications={notifications} billingStatus={tenant.billingStatus} trialDaysLeft={trialDaysLeft} features={features} planInfo={planInfo} salesModeConfigured={Boolean(salesModeConfigured)} />
+            <AdminTopbar
+              storeOpen={tenant.storeOpen}
+              stockAlerts={stockAlerts}
+              newInquiryCount={newInquiryCount}
+              newOrderCount={pendingOrderCount}
+              notificationCount={newInquiryCount + pendingOrderCount}
+              notifications={notifications}
+              billingStatus={tenant.billingStatus}
+              trialDaysLeft={trialDaysLeft}
+              features={features}
+              planInfo={planInfo}
+              salesModeConfigured={Boolean(salesModeConfigured)}
+              impersonating={Boolean(session.user.impersonatedBy)}
+              platformUrl={`${ROOT_DOMAIN.startsWith("localhost") ? "http" : "https"}://${ROOT_DOMAIN}/platform`}
+            />
             <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 lg:px-8 print:p-0">{children}</main>
           </div>
         </PromptProvider>

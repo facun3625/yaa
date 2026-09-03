@@ -85,7 +85,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
             const token = credentials?.token as string | undefined;
             if (!token) return null;
             const record = await prisma.verificationToken.findUnique({ where: { token } });
-            if (!record || record.expires < new Date() || !record.identifier.startsWith("onboarding:")) return null;
+            if (!record || record.expires < new Date()) return null;
+
+            // "Entrar como admin" desde /platform/tiendas/[tenantId] — el
+            // identifier lleva quién lo pidió, para dejar rastro en la
+            // sesión (session.user.impersonatedBy) y que el panel muestre
+            // el cartel de modo soporte. Se valida que quien lo pidió siga
+            // siendo super admin recién en este momento, no solo cuando se
+            // generó el token.
+            if (record.identifier.startsWith("impersonate:")) {
+              await prisma.verificationToken
+                .delete({ where: { identifier_token: { identifier: record.identifier, token } } })
+                .catch(() => {});
+              const [, superAdminId, targetUserId] = record.identifier.split(":");
+              const superAdmin = await prisma.user.findUnique({ where: { id: superAdminId } });
+              if (!superAdmin || superAdmin.role !== "SUPER_ADMIN") return null;
+              const user = await prisma.user.findUnique({ where: { id: targetUserId } });
+              if (!user || !user.tenantId || user.role !== "ADMIN") return null;
+              return {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                image: user.image,
+                role: user.role,
+                tenantId: user.tenantId,
+                impersonatedBy: superAdminId,
+              };
+            }
+
+            if (!record.identifier.startsWith("onboarding:")) return null;
             await prisma.verificationToken
               .delete({ where: { identifier_token: { identifier: record.identifier, token } } })
               .catch(() => {});
