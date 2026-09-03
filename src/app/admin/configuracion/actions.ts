@@ -362,7 +362,12 @@ export async function setCustomDomain(formData: FormData) {
   const { tenant } = await requireTenantAdmin();
   await assertCustomDomainAllowed(tenant.id);
 
-  const domain = domainSchema.parse(String(formData.get("domain") ?? "").trim().toLowerCase());
+  // safeParse en vez de parse: un ZodError crudo sin capturar llega al
+  // cliente como el genérico "Minified React error #441" en producción,
+  // en vez del mensaje de formato que sí tiene el schema.
+  const parsed = domainSchema.safeParse(String(formData.get("domain") ?? "").trim().toLowerCase());
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Dominio inválido");
+  const domain = parsed.data;
 
   const existing = await prisma.tenant.findUnique({ where: { customDomain: domain } });
   if (existing && existing.id !== tenant.id) {
