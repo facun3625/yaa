@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
-import { SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
+import type { RefObject } from "react";
+import { SearchIcon, XIcon } from "lucide-react";
 
 import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +27,29 @@ type UserRow = {
 
 type AccountType = "all" | "customer" | "store" | "store_reseller" | "reseller" | "super_admin";
 type ResellerStatus = "all" | "active" | "inactive";
-type Age = "all" | "7" | "30" | "90";
 type Sort = "newest" | "oldest" | "name" | "email" | "store";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
+const typeItems = [
+  { value: "all", label: "Todos" },
+  { value: "customer", label: "Clientes" },
+  { value: "store", label: "Tiendas" },
+  { value: "store_reseller", label: "Tienda + revendedor" },
+  { value: "reseller", label: "Revendedores" },
+  { value: "super_admin", label: "Super admin" },
+];
+const resellerItems = [
+  { value: "all", label: "Todos" },
+  { value: "active", label: "Activos" },
+  { value: "inactive", label: "Desactivados" },
+];
+const sortItems = [
+  { value: "newest", label: "Más recientes" },
+  { value: "oldest", label: "Más antiguos" },
+  { value: "name", label: "Nombre A–Z" },
+  { value: "email", label: "Email A–Z" },
+  { value: "store", label: "Tienda A–Z" },
+];
 
 function normalize(value: string | null | undefined) {
   return value?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim() ?? "";
@@ -47,13 +67,11 @@ function accountType(user: UserRow): Exclude<AccountType, "all"> {
 
 export function UsersTable({ users }: { users: UserRow[] }) {
   const { containerRef } = useAdminTheme();
-  const [mountedAt] = useState(() => Date.now());
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const [type, setType] = useState<AccountType>("all");
   const [store, setStore] = useState("all");
   const [resellerStatus, setResellerStatus] = useState<ResellerStatus>("all");
-  const [age, setAge] = useState<Age>("all");
   const [sort, setSort] = useState<Sort>("newest");
   const deferredQuery = useDeferredValue(query);
 
@@ -61,6 +79,10 @@ export function UsersTable({ users }: { users: UserRow[] }) {
     () => Array.from(new Map(users.flatMap((user) => user.tenant ? [[user.tenant.id, user.tenant.subdomain] as const] : [])))
       .sort((a, b) => a[1].localeCompare(b[1], "es")),
     [users],
+  );
+  const storeItems = useMemo(
+    () => [{ value: "all", label: "Todas" }, ...stores.map(([value, label]) => ({ value, label }))],
+    [stores],
   );
 
   const suggestions = useMemo(() => {
@@ -73,7 +95,6 @@ export function UsersTable({ users }: { users: UserRow[] }) {
 
   const filtered = useMemo(() => {
     const q = normalize(deferredQuery);
-    const minimumDate = age === "all" ? null : mountedAt - Number(age) * 86_400_000;
     const result = users.filter((user) => {
       const userType = accountType(user);
       const matchesQuery = !q || [user.name, user.email, user.tenant?.subdomain, user.referralCode]
@@ -82,8 +103,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
       const matchesStore = store === "all" || user.tenant?.id === store;
       const matchesReseller = resellerStatus === "all"
         || (Boolean(user.referralCode) && (resellerStatus === "inactive") === Boolean(user.resellerDeactivatedAt));
-      const matchesAge = minimumDate === null || new Date(user.createdAt).getTime() >= minimumDate;
-      return matchesQuery && matchesType && matchesStore && matchesReseller && matchesAge;
+      return matchesQuery && matchesType && matchesStore && matchesReseller;
     });
 
     return result.sort((a, b) => {
@@ -93,31 +113,30 @@ export function UsersTable({ users }: { users: UserRow[] }) {
       if (sort === "store") return (a.tenant?.subdomain ?? "zzzz").localeCompare(b.tenant?.subdomain ?? "zzzz", "es");
       return b.createdAt.localeCompare(a.createdAt);
     });
-  }, [age, deferredQuery, mountedAt, resellerStatus, sort, store, type, users]);
+  }, [deferredQuery, resellerStatus, sort, store, type, users]);
 
-  const hasFilters = Boolean(query) || type !== "all" || store !== "all" || resellerStatus !== "all" || age !== "all" || sort !== "newest";
+  const hasFilters = Boolean(query) || type !== "all" || store !== "all" || resellerStatus !== "all" || sort !== "newest";
 
   function clearFilters() {
     setQuery("");
     setType("all");
     setStore("all");
     setResellerStatus("all");
-    setAge("all");
     setSort("newest");
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border bg-card/30 p-3">
-        <div className="relative max-w-xl">
+      <div className="rounded-2xl border bg-card/40 p-4 shadow-sm">
+        <div className="relative">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => window.setTimeout(() => setFocused(false), 150)}
-            placeholder="Buscar por nombre, email, tienda o código..."
-            className="bg-background pl-9 pr-9"
+            placeholder="Buscar por nombre, email o tienda..."
+            className="h-11 bg-background pl-10 pr-10"
             autoComplete="off"
           />
           {query && (
@@ -140,60 +159,18 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           )}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
-          <Select value={type} onValueChange={(value) => setType(value as AccountType)}>
-            <SelectTrigger size="sm" className="bg-background"><SelectValue placeholder="Tipo de cuenta" /></SelectTrigger>
-            <SelectContent container={containerRef} alignItemWithTrigger={false}>
-              <SelectItem value="all">Todos los tipos</SelectItem>
-              <SelectItem value="customer">Cliente</SelectItem>
-              <SelectItem value="store">Tienda</SelectItem>
-              <SelectItem value="store_reseller">Tienda + revendedor</SelectItem>
-              <SelectItem value="reseller">Revendedor</SelectItem>
-              <SelectItem value="super_admin">Super admin</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={store} onValueChange={(value) => setStore(String(value))}>
-            <SelectTrigger size="sm" className="bg-background"><SelectValue placeholder="Tienda" /></SelectTrigger>
-            <SelectContent container={containerRef} alignItemWithTrigger={false}>
-              <SelectItem value="all">Todas las tiendas</SelectItem>
-              {stores.map(([id, subdomain]) => <SelectItem key={id} value={id}>{subdomain}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          <Select value={resellerStatus} onValueChange={(value) => setResellerStatus(value as ResellerStatus)}>
-            <SelectTrigger size="sm" className="bg-background"><SelectValue placeholder="Revendedores" /></SelectTrigger>
-            <SelectContent container={containerRef} alignItemWithTrigger={false}>
-              <SelectItem value="all">Cualquier estado</SelectItem>
-              <SelectItem value="active">Revendedores activos</SelectItem>
-              <SelectItem value="inactive">Revendedores desactivados</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={age} onValueChange={(value) => setAge(value as Age)}>
-            <SelectTrigger size="sm" className="bg-background"><SelectValue placeholder="Fecha de alta" /></SelectTrigger>
-            <SelectContent container={containerRef} alignItemWithTrigger={false}>
-              <SelectItem value="all">Cualquier fecha</SelectItem>
-              <SelectItem value="7">Últimos 7 días</SelectItem>
-              <SelectItem value="30">Últimos 30 días</SelectItem>
-              <SelectItem value="90">Últimos 90 días</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
-            <SelectTrigger size="sm" className="bg-background"><SelectValue placeholder="Orden" /></SelectTrigger>
-            <SelectContent container={containerRef} alignItemWithTrigger={false}>
-              <SelectItem value="newest">Más recientes</SelectItem>
-              <SelectItem value="oldest">Más antiguos</SelectItem>
-              <SelectItem value="name">Nombre A–Z</SelectItem>
-              <SelectItem value="email">Email A–Z</SelectItem>
-              <SelectItem value="store">Tienda A–Z</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {hasFilters && <Button type="button" variant="ghost" size="sm" onClick={clearFilters}><XIcon className="size-3.5" />Limpiar</Button>}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <FilterSelect label="Tipo de cuenta" items={typeItems} value={type} onValueChange={(value) => setType(value as AccountType)} container={containerRef} />
+          <FilterSelect label="Tienda" items={storeItems} value={store} onValueChange={(value) => setStore(String(value))} container={containerRef} />
+          <FilterSelect label="Estado revendedor" items={resellerItems} value={resellerStatus} onValueChange={(value) => setResellerStatus(value as ResellerStatus)} container={containerRef} />
+          <FilterSelect label="Ordenar por" items={sortItems} value={sort} onValueChange={(value) => setSort(value as Sort)} container={containerRef} />
         </div>
+
+        {hasFilters && (
+          <div className="mt-3 flex justify-end border-t pt-3">
+            <Button type="button" variant="ghost" size="sm" onClick={clearFilters}><XIcon className="size-3.5" />Limpiar filtros</Button>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
@@ -229,5 +206,31 @@ export function UsersTable({ users }: { users: UserRow[] }) {
         </Table>
       </div>
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  items,
+  value,
+  onValueChange,
+  container,
+}: {
+  label: string;
+  items: { value: string; label: string }[];
+  value: string;
+  onValueChange: (value: unknown) => void;
+  container: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1.5">
+      <span className="px-0.5 text-xs font-medium text-muted-foreground">{label}</span>
+      <Select items={items} value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger>
+        <SelectContent container={container} alignItemWithTrigger={false}>
+          {items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </label>
   );
 }
