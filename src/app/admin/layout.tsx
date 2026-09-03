@@ -1,4 +1,5 @@
 import { Montserrat } from "next/font/google";
+import { redirect } from "next/navigation";
 
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminTopbar, type AdminNotification } from "@/components/admin/admin-topbar";
@@ -16,6 +17,14 @@ const montserrat = Montserrat({
 });
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
+
+// Sin esto, una sesión demo olvidada abierta (o un link viejo reusado
+// directo, sin pasar por /demo) queda válida hasta que expire el cookie de
+// NextAuth (30 días por default) — mucho para una clave pública. No hay
+// forma confiable de detectar "se cerró la pestaña" desde una cookie de
+// sesión, así que en cambio se corta por inactividad: 30 minutos sin cargar
+// ninguna página del panel.
+const DEMO_INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { session, tenant, features } = await requireTenantAdminWithPlan();
@@ -42,9 +51,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       : prisma.deliveryDate.findFirst({ where: { tenantId: tenant.id } }).then(Boolean),
   ]);
 
-  // Mientras alguien navega el panel de una copia demo, la mantiene
-  // "ocupada" — así /demo no manda a una segunda visita ahí mismo.
+  // Mientras alguien navega el panel de una copia demo, cada carga de
+  // página refresca su marca de "última actividad" — así /demo no manda una
+  // segunda visita ahí mismo, y si esa marca quedó vieja (nadie tocó nada
+  // en 30 minutos) se corta la sesión antes de mostrar el panel.
   if (isDemoSubdomain(tenant.subdomain)) {
+    const lastActive = await prisma.settings.findUnique({
+      where: { tenantId_key: { tenantId: tenant.id, key: DEMO_LAST_ACTIVE_KEY } },
+    });
+    const idleMs = lastActive ? new Date().getTime() - new Date(lastActive.value).getTime() : 0;
+    if (idleMs > DEMO_INACTIVITY_LIMIT_MS) {
+      const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+      const returnTo = `${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}/login`;
+      redirect(`/api/auth/logout-all?returnTo=${encodeURIComponent(returnTo)}`);
+    }
     await prisma.settings.upsert({
       where: { tenantId_key: { tenantId: tenant.id, key: DEMO_LAST_ACTIVE_KEY } },
       update: { value: new Date().toISOString() },
