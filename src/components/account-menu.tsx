@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { UserIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -89,13 +89,18 @@ export function AccountMenu({ overlay = false }: { overlay?: boolean }) {
           Mi perfil
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {/* <a> nativo, no <Link>: /api/auth/logout-all hace redirects
-        reales entre dominios para borrar cookies de sesión en cada uno —
-        con <Link>, Next lo trata como transición interna y el estado de
-        sesión en memoria no se entera hasta recargar a mano. */}
         <DropdownMenuItem
-          // eslint-disable-next-line @next/next/no-html-link-for-pages -- ver comentario arriba
-          render={<a href="/api/auth/logout-all" />}
+          onClick={() => {
+            // Auth.js invalida primero la sesión del host actual. La
+            // navegación completa posterior limpia también cualquier
+            // sesión que haya quedado en el dominio raíz/subdominio.
+            void signOut({ redirect: false }).finally(() => {
+              // Debe ser una navegación de documento: el endpoint encadena
+              // redirects entre hosts y no es una transición del App Router.
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+              window.location.assign("/api/auth/logout-all");
+            });
+          }}
           className="gap-2 py-1.5 text-sm text-muted-foreground"
         >
           <span className="size-1 shrink-0 rounded-full bg-current" />
