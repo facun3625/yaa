@@ -44,11 +44,12 @@ export default async function RegistroPage({
     // Se registró antes pero no terminó — lo mandamos directo a donde
     // quedó, en vez de hacerlo pasar por "Crear cuenta" de nuevo.
     if (user.pendingPlanId) redirect("/registro/datos");
-    // Ya eligió "ser socio" antes (tiene código) y no está a mitad de crear
-    // una tienda — no tiene sentido volver a preguntarle "¿qué querés
-    // hacer?" cada vez que entra. Directo a su panel; "crear mi tienda"
-    // sigue disponible ahí como un link, no como una pregunta obligatoria.
-    if (user.referralCode) redirect("/socios");
+    // Ya tener código de socio NO lo manda directo a /socios: esa cuenta
+    // puede llegar acá porque su tienda anterior se borró (ver deleteTenant
+    // en platform/tiendas/[tenantId]/actions.ts, que la baja a CUSTOMER sin
+    // tocar el código) y justamente quiere crear una nueva — forzarlo a
+    // /socios lo dejaba sin forma de volver a elegir. /registro/elegir ya
+    // contempla el caso "ya es socio" mostrando ambas opciones por igual.
     redirect("/registro/elegir");
   }
 
