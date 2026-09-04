@@ -200,7 +200,12 @@ export async function resolveScheduledSalesAvailability(tenantId: string): Promi
     return {
       open: false,
       soldOut: false,
-      nextSaleLabel: saleDateFormatter.format(upcoming.date),
+      // upcoming.date es la fecha de ENTREGA, no cuándo se puede empezar a
+      // pedir — mostrarla acá le decía al cliente "volvé el día que te
+      // entregamos" en vez de "volvé cuando abrimos". orderOpenAt es la
+      // fecha correcta (siempre no-null: es justo la que usó el where de
+      // arriba para encontrar esta fecha).
+      nextSaleLabel: saleDateFormatter.format(upcoming.orderOpenAt!),
       // El dueño puede dejar ver el catálogo (sin poder pedir) mientras
       // falta para que abra — ver showCatalogBeforeOpen en el editor de
       // la fecha.
