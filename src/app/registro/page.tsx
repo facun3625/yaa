@@ -22,6 +22,13 @@ export default async function RegistroPage({
   const { ref } = await searchParams;
   const session = await auth();
 
+  // El mínimo entre los planes activos: lo que se le puede prometer acá
+  // (antes de elegir plan) sin arriesgarse a que un plan con menos días
+  // deje la promesa incumplida.
+  const activePlans = await prisma.plan.findMany({ where: { active: true }, select: { trialDays: true } });
+  const trialDaysList = activePlans.map((p) => p.trialDays).filter((d) => d > 0);
+  const minTrialDays = trialDaysList.length > 0 ? Math.min(...trialDaysList) : null;
+
   // La sesión es JWT y no se refresca sola — si el token es viejo puede
   // seguir diciendo "sin tienda" aunque en la base ya tenga una (ver
   // lib/require-onboarding.ts), así que acá también se manda a buscar el
@@ -75,6 +82,12 @@ export default async function RegistroPage({
           <ul className="mt-5 flex flex-col gap-2 text-sm text-white/70">
             <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />0% de comisión sobre tus ventas</li>
             <li className="flex items-center gap-2"><Check className="size-4 shrink-0 text-[#ff7658]" />Condiciones claras antes de elegir</li>
+            {minTrialDays && (
+              <li className="flex items-center gap-2">
+                <Check className="size-4 shrink-0 text-[#ff7658]" />
+                {minTrialDays} días de prueba gratis, sin tarjeta
+              </li>
+            )}
           </ul>
 
           <Image
@@ -96,6 +109,11 @@ export default async function RegistroPage({
               <h2 className="text-xl font-semibold">Creá tu tienda</h2>
               <p className="text-sm text-white/50">Creá tu cuenta, sin instalaciones.</p>
             </div>
+            {minTrialDays && (
+              <p className="text-xs font-medium text-[#ff7658]">
+                {minTrialDays} días de prueba gratis — no pedimos tarjeta.
+              </p>
+            )}
           </div>
 
           <div className="h-px bg-white/10" />
