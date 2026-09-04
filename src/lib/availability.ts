@@ -182,12 +182,12 @@ const saleDateFormatter = new Intl.DateTimeFormat("es-AR", { weekday: "long", da
 
 export type ScheduledSalesAvailability =
   | { open: true; sales: OpenSale[] }
-  | { open: false; soldOut: boolean; nextSaleLabel: string | null };
+  | { open: false; soldOut: boolean; nextSaleLabel: string | null; previewDate: OpenSale | null };
 
 /** Modo B: ventas programadas. Resuelve qué "ventas" están tomando pedidos ahora. */
 export async function resolveScheduledSalesAvailability(tenantId: string): Promise<ScheduledSalesAvailability> {
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-  if (!canTenantReceiveOrders(tenant)) return { open: false, soldOut: false, nextSaleLabel: null };
+  if (!canTenantReceiveOrders(tenant)) return { open: false, soldOut: false, nextSaleLabel: null, previewDate: null };
   const sales = await getOpenSales(tenantId);
   if (sales.length > 0) return { open: true, sales };
 
@@ -197,7 +197,15 @@ export async function resolveScheduledSalesAvailability(tenantId: string): Promi
     orderBy: { orderOpenAt: "asc" },
   });
   if (upcoming) {
-    return { open: false, soldOut: false, nextSaleLabel: saleDateFormatter.format(upcoming.date) };
+    return {
+      open: false,
+      soldOut: false,
+      nextSaleLabel: saleDateFormatter.format(upcoming.date),
+      // El dueño puede dejar ver el catálogo (sin poder pedir) mientras
+      // falta para que abra — ver showCatalogBeforeOpen en el editor de
+      // la fecha.
+      previewDate: upcoming.showCatalogBeforeOpen ? upcoming : null,
+    };
   }
 
   const activeButFull = await prisma.deliveryDate.findFirst({
@@ -209,5 +217,5 @@ export async function resolveScheduledSalesAvailability(tenantId: string): Promi
       AND: [{ OR: [{ cutoffAt: null }, { cutoffAt: { gt: now } }] }],
     },
   });
-  return { open: false, soldOut: Boolean(activeButFull), nextSaleLabel: null };
+  return { open: false, soldOut: Boolean(activeButFull), nextSaleLabel: null, previewDate: null };
 }

@@ -676,16 +676,21 @@ enum StockMovementReason {
 }
 
 model DeliveryDate {
-  id          String             @id @default(cuid())
-  tenantId    String
-  date        DateTime
-  orderOpenAt DateTime?
-  cutoffAt    DateTime?
-  capacity    Int?
-  status      DeliveryDateStatus @default(OPEN)
-  stockMode   DateStockMode      @default(BY_GROUP)
-  notes       String?
-  createdAt   DateTime           @default(now())
+  id                    String             @id @default(cuid())
+  tenantId              String
+  date                  DateTime
+  orderOpenAt           DateTime?
+  cutoffAt              DateTime?
+  capacity              Int?
+  status                DeliveryDateStatus @default(OPEN)
+  stockMode             DateStockMode      @default(BY_GROUP)
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  // Antes de que abra el pedido (orderOpenAt en el futuro), el storefront
+  // por default oculta todo y solo avisa cuándo abrimos. Con esto en true
+  // deja ver el catálogo igual — sin poder agregar al carrito, cada
+  // producto muestra la fecha de apertura en vez del botón "Agregar".
+  showCatalogBeforeOpen Boolean            @default(false)
 
   tenant          Tenant             @relation(fields: [tenantId], references: [id])
   stockGroupStock StockGroupStock[]

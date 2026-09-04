@@ -96,6 +96,7 @@ export default async function EditDeliveryDatePage({
         capacity: deliveryDate.capacity,
         notes: deliveryDate.notes,
         status: deliveryDate.status,
+        showCatalogBeforeOpen: deliveryDate.showCatalogBeforeOpen,
       }}
       stockMode={deliveryDate.stockMode}
       groups={groups}

@@ -200,6 +200,7 @@ export function Catalog({
               }}
               highlighted={highlightedId === product.id}
               readOnly={readOnly}
+              nextOpenDateLabel={nextOpenDateLabel}
             />
           ))}
 
@@ -218,6 +219,7 @@ export function Catalog({
         deliveryDateId={selectedDeliveryDateId}
         onClose={() => setSelectedProduct(null)}
         readOnly={readOnly}
+        nextOpenDateLabel={nextOpenDateLabel}
       />
 
       {!readOnly && <CartBar className="lg:hidden" />}

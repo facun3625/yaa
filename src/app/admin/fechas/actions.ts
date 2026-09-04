@@ -77,6 +77,7 @@ export async function createDeliveryDate(formData: FormData) {
 // no de una fecha puntual, y se edita desde Productos → Grupos de stock.
 const saveDeliveryDateSchema = deliveryDateSchema.extend({
   open: z.string(),
+  showCatalogBeforeOpen: z.string(),
   stockMode: z.enum(["BY_GROUP", "UNLIMITED"]),
   // { added: string[] (labels nuevos), removedIds: string[] (franjas existentes a borrar) }
   pickupSlots: z.string().optional(),
@@ -95,6 +96,7 @@ export async function saveDeliveryDate(id: string, formData: FormData) {
     capacity: formData.get("capacity") || undefined,
     notes: formData.get("notes") || undefined,
     open: formData.get("open"),
+    showCatalogBeforeOpen: formData.get("showCatalogBeforeOpen"),
     stockMode: formData.get("stockMode"),
     pickupSlots: formData.get("pickupSlots") || undefined,
   });
@@ -116,6 +118,7 @@ export async function saveDeliveryDate(id: string, formData: FormData) {
         capacity: parsed.capacity ? Number(parsed.capacity) : null,
         notes: parsed.notes || null,
         status: parsed.open === "true" ? "OPEN" : "CLOSED",
+        showCatalogBeforeOpen: parsed.showCatalogBeforeOpen === "true",
         stockMode: parsed.stockMode,
       },
     });

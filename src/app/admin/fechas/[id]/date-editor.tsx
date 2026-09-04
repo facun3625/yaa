@@ -28,6 +28,7 @@ type DeliveryDateData = {
   capacity: number | null;
   notes: string | null;
   status: "OPEN" | "CLOSED" | "EXPIRED";
+  showCatalogBeforeOpen: boolean;
 };
 
 type Group = {
@@ -104,6 +105,7 @@ export function DateEditor({
       capacity: d.capacity != null ? String(d.capacity) : "",
       notes: d.notes ?? "",
       open: d.status === "OPEN",
+      showCatalogBeforeOpen: d.showCatalogBeforeOpen,
     };
   }
 
@@ -113,6 +115,7 @@ export function DateEditor({
   const [capacity, setCapacity] = useState(deliveryDate.capacity != null ? String(deliveryDate.capacity) : "");
   const [notes, setNotes] = useState(deliveryDate.notes ?? "");
   const [open, setOpen] = useState(deliveryDate.status === "OPEN");
+  const [showCatalogBeforeOpen, setShowCatalogBeforeOpen] = useState(deliveryDate.showCatalogBeforeOpen);
   const [stockMode, setStockMode] = useState<StockMode>(initialStockMode);
 
   const [groupQty, setGroupQty] = useState<Record<string, QtyState>>(() =>
@@ -167,6 +170,7 @@ export function DateEditor({
     capacity,
     notes,
     open,
+    showCatalogBeforeOpen,
     stockMode,
     groupQty,
     slots,
@@ -210,6 +214,7 @@ export function DateEditor({
         formData.set("capacity", capacity);
         formData.set("notes", notes);
         formData.set("open", String(open));
+        formData.set("showCatalogBeforeOpen", String(showCatalogBeforeOpen));
         formData.set("stockMode", stockMode);
 
         if (stockMode === "BY_GROUP") {
@@ -229,6 +234,7 @@ export function DateEditor({
           capacity,
           notes,
           open,
+          showCatalogBeforeOpen,
           stockMode,
           groupQty,
           slots,
@@ -250,6 +256,7 @@ export function DateEditor({
     setCapacity(baseline.capacity);
     setNotes(baseline.notes);
     setOpen(baseline.open);
+    setShowCatalogBeforeOpen(baseline.showCatalogBeforeOpen);
     setStockMode(baseline.stockMode);
     setGroupQty(baseline.groupQty);
     setSlots(baseline.slots);
@@ -370,6 +377,17 @@ export function DateEditor({
               </span>
             </div>
             <Switch checked={open} onCheckedChange={setOpen} />
+          </div>
+
+          <div className="flex items-center justify-between border-b pb-4">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Mostrar catálogo antes de abrir</span>
+              <span className="text-xs text-muted-foreground">
+                Mientras falta para &quot;Empezamos a tomar pedidos&quot;, dejá ver el menú igual (sin poder
+                comprar) en vez de ocultar la tienda por completo.
+              </span>
+            </div>
+            <Switch checked={showCatalogBeforeOpen} onCheckedChange={setShowCatalogBeforeOpen} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

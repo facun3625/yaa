@@ -27,11 +27,13 @@ export function AddToCartSheet({
   deliveryDateId,
   onClose,
   readOnly = false,
+  nextOpenDateLabel,
 }: {
   product: CatalogProduct | null;
   deliveryDateId: string;
   onClose: () => void;
   readOnly?: boolean;
+  nextOpenDateLabel?: string | null;
 }) {
   const quickAdd = useQuickAdd(deliveryDateId);
   const { cart, addItem, confirmReplace } = useCart();
@@ -391,7 +393,9 @@ export function AddToCartSheet({
             )
           ) : readOnly ? (
             <p className="text-center text-sm text-muted-foreground">
-              Todavía no se puede pedir — volvé a mirar cuando abramos.
+              {nextOpenDateLabel
+                ? `Todavía no se puede pedir — abrimos ${nextOpenDateLabel}.`
+                : "Todavía no se puede pedir — volvé a mirar cuando abramos."}
             </p>
           ) : hasMultipleVariants ? (
             <Button

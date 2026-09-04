@@ -100,6 +100,17 @@ async function resolveForStorefront(tenantId: string): Promise<Resolved> {
     };
   }
 
+  if (availability.previewDate) {
+    return {
+      readOnly: true,
+      readOnlyReason: "closed",
+      nextOpenDateLabel: availability.nextSaleLabel,
+      statusBanner: null,
+      openDates: [{ id: availability.previewDate.id, date: availability.previewDate.date.toISOString() }],
+      selectedDateId: availability.previewDate.id,
+    };
+  }
+
   return {
     readOnly: true,
     readOnlyReason: availability.soldOut ? "soldout" : "closed",
@@ -230,10 +241,12 @@ export default async function Home({
     };
   });
 
-  // Vacío de verdad (nada cargado) o realmente cerrado — no confundir con
-  // "abierto pero sin stock", que sigue mostrando la tienda con lo agotado
-  // marcado.
-  if (resolved.readOnly || catalogProducts.length === 0) {
+  // Vacío de verdad (nada cargado) o realmente cerrado sin nada para
+  // previsualizar — no confundir con "abierto pero sin stock" (sigue
+  // mostrando la tienda con lo agotado marcado) ni con el modo de solo
+  // mirar el menú antes de que abra el pedido (showCatalogBeforeOpen,
+  // openDates trae la fecha aunque readOnly sea true).
+  if (resolved.openDates.length === 0 || catalogProducts.length === 0) {
     return (
       <div className="flex flex-1 flex-col">
         <StoreHero />

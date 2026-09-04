@@ -22,6 +22,7 @@ export function ProductCard({
   cardRef,
   highlighted,
   readOnly = false,
+  nextOpenDateLabel,
 }: {
   product: CatalogProduct;
   deliveryDateId: string;
@@ -29,6 +30,7 @@ export function ProductCard({
   cardRef?: (el: HTMLDivElement | null) => void;
   highlighted?: boolean;
   readOnly?: boolean;
+  nextOpenDateLabel?: string | null;
 }) {
   const { cart, updateQuantity } = useCart();
   const quickAdd = useQuickAdd(deliveryDateId);
@@ -177,7 +179,13 @@ export function ProductCard({
               Consultar
             </a>
           )
-        ) : readOnly ? null : quantity > 0 ? (
+        ) : readOnly ? (
+          nextOpenDateLabel && (
+            <span className="flex h-8 w-[88px] items-center justify-center px-1 text-center text-[10px] font-medium leading-tight text-muted-foreground">
+              Abrimos {nextOpenDateLabel}
+            </span>
+          )
+        ) : quantity > 0 ? (
           <div className="flex h-8 w-[88px] items-center justify-between gap-1 rounded-xl border bg-background px-1 shadow-sm">
             <button
               type="button"
