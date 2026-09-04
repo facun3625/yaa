@@ -120,7 +120,7 @@ export function ProductCard({
       onClick={onSelect}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect()}
       className={cn(
-        "flex cursor-pointer items-stretch gap-2.5 rounded-xl border p-2.5 text-left transition-shadow active:bg-accent",
+        "flex cursor-pointer items-stretch gap-2.5 rounded-xl border p-2.5 text-left transition-shadow active:bg-muted",
         highlighted && "ring-2 ring-primary ring-offset-2",
       )}
     >
