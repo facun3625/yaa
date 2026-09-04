@@ -63,7 +63,11 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // Default de Base UI (true) superpone el popup sobre el trigger para
+  // alinear el texto del ítem elegido — con pocos ítems (o uno solo) se ve
+  // igual que el trigger cerrado, nada indica que se abrió. false hace que
+  // siempre aparezca como un dropdown normal, debajo del trigger.
+  alignItemWithTrigger = false,
   container,
   ...props
 }: SelectPrimitive.Popup.Props &
