@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/format";
 import { TenantStatusToggle } from "./tenant-status-toggle";
-import { TenantCategorySelect } from "./tenant-category-select";
+import { TenantCategorySelect } from "../tenant-category-select";
 import { BillingPanel } from "./billing-panel";
 import { DeleteTenantButton } from "./delete-tenant-button";
 import { ApplyPromotionForm } from "./apply-promotion-form";

@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { TENANT_CATEGORY_LABELS } from "@/lib/tenant-category";
-import { setTenantCategory } from "./actions";
+import { setTenantCategory } from "./[tenantId]/actions";
 
 export function TenantCategorySelect({
   tenantId,

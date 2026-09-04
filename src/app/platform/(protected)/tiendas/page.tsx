@@ -12,9 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BILLING_STATUS_COLORS, BILLING_STATUS_LABELS } from "@/lib/billing-status";
-import { TENANT_CATEGORY_COLORS, TENANT_CATEGORY_LABELS } from "@/lib/tenant-category";
 import { formatPrice } from "@/lib/format";
 import { TenantsFilterBar } from "./tenants-filter-bar";
+import { TenantCategorySelect } from "./tenant-category-select";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 
@@ -71,6 +71,7 @@ export default async function TenantsPage({
           <TableHeader>
             <TableRow>
               <TableHead>Tienda</TableHead>
+              <TableHead>Categoría</TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Facturación</TableHead>
               <TableHead>Estado</TableHead>
@@ -83,16 +84,12 @@ export default async function TenantsPage({
             {tenants.map((t) => (
               <TableRow key={t.id}>
                 <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/platform/tiendas/${t.id}`} className="hover:underline">
-                      {t.subdomain}
-                    </Link>
-                    {t.category !== "CLIENTE" && (
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TENANT_CATEGORY_COLORS[t.category]}`}>
-                        {TENANT_CATEGORY_LABELS[t.category]}
-                      </span>
-                    )}
-                  </div>
+                  <Link href={`/platform/tiendas/${t.id}`} className="hover:underline">
+                    {t.subdomain}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <TenantCategorySelect tenantId={t.id} category={t.category} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   <div className="flex flex-col gap-1">
@@ -125,7 +122,7 @@ export default async function TenantsPage({
 
             {tenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   {params.q || params.billing ? "No hay tiendas que coincidan con la búsqueda." : "Todavía no hay tiendas creadas."}
                 </TableCell>
               </TableRow>
