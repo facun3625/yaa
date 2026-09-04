@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useAdminTheme } from "@/components/admin/admin-theme-root";
 import { BILLING_STATUS_LABELS } from "@/lib/billing-status";
+import { TENANT_CATEGORY_LABELS } from "@/lib/tenant-category";
 
 export function TenantsFilterBar() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export function TenantsFilterBar() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const hasFilters = ["q", "billing"].some((k) => searchParams.get(k));
+  const hasFilters = ["q", "billing", "category"].some((k) => searchParams.get(k));
 
   return (
     <div className="flex flex-col gap-2">
@@ -65,6 +66,27 @@ export function TenantsFilterBar() {
           <SelectContent container={containerRef} alignItemWithTrigger={false}>
             <SelectItem value="all">Todas las tiendas</SelectItem>
             {Object.entries(BILLING_STATUS_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          items={[
+            { value: "all", label: "Todas las categorías" },
+            ...Object.entries(TENANT_CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
+          ]}
+          value={searchParams.get("category") ?? "all"}
+          onValueChange={(v) => updateParam("category", v === "all" ? null : String(v))}
+        >
+          <SelectTrigger size="sm" className="bg-background">
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent container={containerRef} alignItemWithTrigger={false}>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            {Object.entries(TENANT_CATEGORY_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>

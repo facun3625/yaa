@@ -17,6 +17,16 @@ enum TenantStatus {
   SUSPENDED
 }
 
+// Para separar, en las estadísticas de /platform, lo que es negocio real de
+// lo que no: DEMO son las copias de scripts/seed-demo-pizzeria.ts (ver
+// DEMO_SUBDOMAINS) y PROMOCION una tienda de prueba/cortesía sin intención
+// de pagar. Ninguna de las dos cuenta en getPlatformStats.
+enum TenantCategory {
+  CLIENTE
+  DEMO
+  PROMOCION
+}
+
 enum OrderingMode {
   WEEKLY_HOURS
   SCHEDULED_SALES
@@ -217,16 +227,18 @@ model PromotionRedemption {
 }
 
 model Tenant {
-  id                   String       @id @default(cuid())
-  subdomain            String       @unique
-  status               TenantStatus @default(ACTIVE)
-  orderingMode         OrderingMode @default(SCHEDULED_SALES)
-  ordersManuallyClosed Boolean      @default(false)
+  id                   String         @id @default(cuid())
+  subdomain            String         @unique
+  status               TenantStatus   @default(ACTIVE)
+  // Manual, tildado desde /platform/tiendas/[tenantId] — no se infiere solo.
+  category             TenantCategory @default(CLIENTE)
+  orderingMode         OrderingMode   @default(SCHEDULED_SALES)
+  ordersManuallyClosed Boolean        @default(false)
   // Apagado general de la tienda desde el admin — independiente del modo y
   // de los horarios/fechas configurados. Mientras esté en false, el
   // storefront muestra "Tienda cerrada" y no se puede hacer ningún pedido.
-  storeOpen            Boolean      @default(true)
-  createdAt            DateTime     @default(now())
+  storeOpen            Boolean        @default(true)
+  createdAt            DateTime       @default(now())
 
   // Datos que se cargan una vez en el alta (/registro/datos) — para vos
   // como plataforma, no para mostrarle al público. Ciudad y provincia sí

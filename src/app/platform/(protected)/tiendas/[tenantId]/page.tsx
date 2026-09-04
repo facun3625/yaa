@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/format";
 import { TenantStatusToggle } from "./tenant-status-toggle";
+import { TenantCategorySelect } from "./tenant-category-select";
 import { BillingPanel } from "./billing-panel";
 import { DeleteTenantButton } from "./delete-tenant-button";
 import { ApplyPromotionForm } from "./apply-promotion-form";
@@ -60,6 +61,7 @@ export default async function TenantDetailPage({
           <p className="text-sm text-muted-foreground">{tenant.subdomain}</p>
         </div>
         <div className="flex items-center gap-2">
+          <TenantCategorySelect tenantId={tenant.id} category={tenant.category} />
           <Badge variant={tenant.status === "ACTIVE" ? "default" : "secondary"}>
             {tenant.status === "ACTIVE" ? "Activa" : "Suspendida"}
           </Badge>

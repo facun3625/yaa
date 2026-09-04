@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BILLING_STATUS_COLORS, BILLING_STATUS_LABELS } from "@/lib/billing-status";
+import { TENANT_CATEGORY_COLORS, TENANT_CATEGORY_LABELS } from "@/lib/tenant-category";
 import { formatPrice } from "@/lib/format";
 import { TenantsFilterBar } from "./tenants-filter-bar";
 
@@ -20,7 +21,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" });
 export default async function TenantsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; billing?: string }>;
+  searchParams: Promise<{ q?: string; billing?: string; category?: string }>;
 }) {
   const params = await searchParams;
 
@@ -28,6 +29,7 @@ export default async function TenantsPage({
     where: {
       ...(params.q ? { subdomain: { contains: params.q, mode: "insensitive" as const } } : {}),
       ...(params.billing ? { billingStatus: params.billing as never } : {}),
+      ...(params.category ? { category: params.category as never } : {}),
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -81,9 +83,16 @@ export default async function TenantsPage({
             {tenants.map((t) => (
               <TableRow key={t.id}>
                 <TableCell className="font-medium">
-                  <Link href={`/platform/tiendas/${t.id}`} className="hover:underline">
-                    {t.subdomain}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/platform/tiendas/${t.id}`} className="hover:underline">
+                      {t.subdomain}
+                    </Link>
+                    {t.category !== "CLIENTE" && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TENANT_CATEGORY_COLORS[t.category]}`}>
+                        {TENANT_CATEGORY_LABELS[t.category]}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   <div className="flex flex-col gap-1">

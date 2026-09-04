@@ -25,6 +25,12 @@ export async function setTenantStatus(tenantId: string, status: "ACTIVE" | "SUSP
   revalidateTenant(tenantId);
 }
 
+export async function setTenantCategory(tenantId: string, category: "CLIENTE" | "DEMO" | "PROMOCION") {
+  await requireSuperAdmin();
+  await prisma.tenant.update({ where: { id: tenantId }, data: { category } });
+  revalidateTenant(tenantId);
+}
+
 export async function setTenantPlan(tenantId: string, planId: string | null) {
   await requireSuperAdmin();
   await applyTenantPlan(tenantId, planId, false);
