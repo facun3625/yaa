@@ -324,6 +324,19 @@ model DomainRequest {
   @@index([tenantId])
 }
 
+// Cada entrada a /demo (ver src/app/demo/) queda registrada acá para medir
+// interés real en el producto: quién probó, con qué copia y cuándo. No se
+// ata a un Tenant — las tiendas demo son compartidas (ver DEMO_SUBDOMAINS)
+// y se reciclan entre visitantes distintos.
+model DemoVisit {
+  id        String   @id @default(cuid())
+  email     String
+  subdomain String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // ---------- Auth ----------
 
 enum Role {

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, GiftIcon, PlusIcon, UsersIcon, UserIcon, LandmarkIcon, SettingsIcon, GlobeIcon } from "lucide-react";
+import { LayoutDashboardIcon, StoreIcon, CreditCardIcon, GiftIcon, PlusIcon, UsersIcon, UserIcon, LandmarkIcon, SettingsIcon, GlobeIcon, EyeIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ const sections = [
   { href: "/platform/facturacion", label: "Facturación", icon: LandmarkIcon },
   { href: "/platform/promociones", label: "Promociones", icon: GiftIcon },
   { href: "/platform/dominios", label: "Dominios", icon: GlobeIcon },
+  { href: "/platform/demo", label: "Visitas demo", icon: EyeIcon },
   { href: "/platform/revendedores", label: "Revendedores", icon: UsersIcon },
   { href: "/platform/configuracion", label: "Configuración", icon: SettingsIcon },
 ];
