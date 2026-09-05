@@ -27,10 +27,36 @@ export default async function MisPedidosPage({
   const skip = (pageNumber - 1) * take;
 
   const session = await auth();
-  if (!session?.user) redirect("/login?callbackUrl=/pedidos");
-
   const tenant = await getCurrentTenant();
   if (!tenant) redirect("/");
+
+  if (!session?.user) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <StoreHero />
+        <div className="relative z-1 -mt-6 mx-5 flex flex-1 flex-col rounded-t-3xl bg-background lg:-mt-32 lg:mx-auto lg:w-full lg:max-w-[1440px] lg:shadow-2xl">
+          <main className="mx-auto flex w-full max-w-sm flex-1 flex-col items-center gap-4 px-4 py-12 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full bg-muted">
+              <ClipboardListIcon className="size-6 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <h1 className="text-xl font-semibold">Tus pedidos</h1>
+              <p className="text-sm text-muted-foreground">
+                Si tenés una cuenta, iniciá sesión. Si pediste sin registrarte, buscalo con tu teléfono y email.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <Button render={<Link href="/login?callbackUrl=/pedidos" />}>Iniciar sesión</Button>
+              <Button variant="outline" render={<Link href="/pedidos/buscar" />}>
+                Pedí sin cuenta — buscar mi pedido
+              </Button>
+            </div>
+          </main>
+        </div>
+        <StoreFooter />
+      </div>
+    );
+  }
 
   const [orders, totalOrders] = await Promise.all([
     prisma.order.findMany({

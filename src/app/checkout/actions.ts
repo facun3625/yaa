@@ -13,6 +13,16 @@ import { awardPointsForOrder } from "@/lib/points";
 import { getTenantMercadoPagoCredentials } from "@/lib/mercadopago-config";
 import { createPreference } from "@/lib/mercadopago";
 import { canTenantReceiveOrders } from "@/lib/billing-status";
+import { getStoreSettings, getOrderEmailMessage } from "@/lib/settings";
+import { orderConfirmationEmail } from "@/lib/email-templates";
+import { sendMail } from "@/lib/mailer";
+import { toWhatsAppLink, toInstagramLink } from "@/lib/social-links";
+import { FULFILLMENT_TYPE_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/order-status";
+
+const deliveryDateFormatter = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "2-digit", month: "long" });
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
 
@@ -177,6 +187,7 @@ export async function placeOrder(formData: FormData) {
       : 0;
 
   let pickupSlotId: string | null = null;
+  let pickupSlotLabel: string | null = null;
   if (parsed.fulfillmentType === "PICKUP") {
     const validSlots = await getPickupSlotsForDate(tenant.id, parsed.deliveryDateId);
     if (validSlots.length > 0) {
@@ -184,6 +195,7 @@ export async function placeOrder(formData: FormData) {
         throw new Error("Elegí un horario de retiro");
       }
       pickupSlotId = parsed.pickupSlotId;
+      pickupSlotLabel = validSlots.find((s) => s.id === parsed.pickupSlotId)?.label ?? null;
     }
   }
 
@@ -397,6 +409,66 @@ export async function placeOrder(formData: FormData) {
 
     return created;
   });
+
+  // Mail de "recibimos tu pedido" con el link para revisar el estado
+  // después (útil sobre todo para invitados: sin cuenta, esta es la única
+  // forma de volver a encontrar su pedido si pierden la pestaña). No
+  // bloquea el checkout: sendMail no hace nada si SMTP no está
+  // configurado, y si el envío falla igual el pedido ya quedó confirmado.
+  const recipientEmail = session?.user?.email ?? (parsed.guestEmail || null);
+  if (recipientEmail) {
+    try {
+      const [storeSettings, customMessage, orderWithItems] = await Promise.all([
+        getStoreSettings(tenant.id),
+        getOrderEmailMessage(tenant.id),
+        prisma.order.findUniqueOrThrow({
+          where: { id: order.id },
+          include: { items: { include: { productVariant: { include: { product: true } } } } },
+        }),
+      ]);
+      const protocol = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+      const base = `${protocol}://${tenant.subdomain}.${ROOT_DOMAIN}`;
+      await sendMail({
+        tenantId: tenant.id,
+        to: recipientEmail,
+        subject: `Recibimos tu pedido — ${storeSettings.storeName}`,
+        html: orderConfirmationEmail({
+          storeName: storeSettings.storeName,
+          logoUrl: storeSettings.logoUrl,
+          customMessage,
+          customerName: session?.user?.name ?? parsed.guestName ?? null,
+          orderId: order.id,
+          orderUrl: `${base}/pedidos/${order.id}`,
+          items: orderWithItems.items.map((it) => ({
+            name: it.productVariant.product.name,
+            quantity: it.quantity,
+            unitPrice: Number(it.unitPrice),
+          })),
+          subtotal: Number(order.subtotal),
+          deliveryFee: Number(order.deliveryFee),
+          discount: Number(order.discountFromCoupon),
+          couponCode: parsed.couponCode || null,
+          total: Number(order.total),
+          pointsEarned: orderWithItems.pointsEarned,
+          fulfillmentLabel: FULFILLMENT_TYPE_LABELS[order.fulfillmentType],
+          deliveryDateLabel: capitalize(deliveryDateFormatter.format(deliveryDate.date)),
+          deliveryAddress: order.deliveryAddress,
+          pickupSlotLabel,
+          phone: order.deliveryPhone,
+          paymentMethodLabel: PAYMENT_METHOD_LABELS[order.paymentMethod],
+          storeAddress: storeSettings.address,
+          storePhone: storeSettings.phone,
+          storeEmail: storeSettings.email,
+          whatsappUrl: storeSettings.whatsapp ? toWhatsAppLink(storeSettings.whatsapp) : null,
+          instagramUrl: storeSettings.instagram ? toInstagramLink(storeSettings.instagram) : null,
+          appUrl: base,
+        }),
+        type: "ORDER_CONFIRMATION",
+      });
+    } catch (err) {
+      console.error("No se pudo enviar el mail de confirmación de pedido", err);
+    }
+  }
 
   if (parsed.paymentMethod !== "MERCADOPAGO") {
     return { orderId: order.id, paymentUrl: null };

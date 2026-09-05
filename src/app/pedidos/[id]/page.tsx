@@ -61,6 +61,19 @@ export default async function OrderDetailPage({
             </Badge>
           </div>
 
+          {!order.userId && (
+            <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+              {order.guestEmail
+                ? `Te mandamos este link a ${order.guestEmail}. Si lo perdés, `
+                : "Si perdés este link, "}
+              podés volver a encontrarlo en{" "}
+              <Link href="/pedidos/buscar" className="font-medium text-foreground underline">
+                Buscar mi pedido
+              </Link>{" "}
+              con tu teléfono y email.
+            </p>
+          )}
+
           <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
           <div className="flex flex-col gap-3 rounded-2xl border p-4">
             {order.items.map((item) => {
