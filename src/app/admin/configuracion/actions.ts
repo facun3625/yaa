@@ -183,6 +183,15 @@ export async function deleteAboutMedia(id: string) {
   revalidatePath("/admin/configuracion");
 }
 
+export async function reorderAboutMedia(orderedIds: string[]) {
+  const { tenant } = await requireTenantAdmin();
+  await prisma.$transaction(
+    orderedIds.map((id, i) => prisma.aboutMedia.update({ where: { id, tenantId: tenant.id }, data: { order: i } })),
+  );
+  revalidatePath("/sobre-nosotros");
+  revalidatePath("/admin/configuracion");
+}
+
 // ---------- SMTP (mail de confirmación de pedido) ----------
 
 const smtpSchema = z.object({

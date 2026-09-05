@@ -4,14 +4,22 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import { PlayIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, PlayIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/admin/confirm-provider";
 import type { AboutContent } from "@/lib/about";
-import { addAboutMedia, deleteAboutMedia, updateAboutText } from "./actions";
+import { addAboutMedia, deleteAboutMedia, reorderAboutMedia, updateAboutText } from "./actions";
 import { AboutEditor } from "./about-editor";
+
+function move<T>(arr: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length) return arr;
+  const copy = arr.slice();
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
 
 export function AboutUsForm({ content }: { content: AboutContent }) {
   const router = useRouter();
@@ -20,6 +28,7 @@ export function AboutUsForm({ content }: { content: AboutContent }) {
   const [textPending, startTextTransition] = useTransition();
   const [uploadPending, startUploadTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
 
@@ -49,6 +58,20 @@ export function AboutUsForm({ content }: { content: AboutContent }) {
         toast.error(e instanceof Error ? e.message : "No se pudo subir");
       }
     });
+  }
+
+  async function handleMove(index: number, direction: -1 | 1) {
+    const reordered = move(content.media, index, index + direction);
+    if (reordered === content.media) return;
+    setReordering(true);
+    try {
+      await reorderAboutMedia(reordered.map((m) => m.id));
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo reordenar");
+    } finally {
+      setReordering(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -83,26 +106,48 @@ export function AboutUsForm({ content }: { content: AboutContent }) {
       <div className="flex flex-col gap-2 border-t pt-4">
         <Label>Fotos y videos</Label>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-          {content.media.map((m) => (
-            <div key={m.id} className="relative aspect-square overflow-hidden rounded-md bg-muted">
-              {m.type === "IMAGE" ? (
-                <Image src={m.url} alt="" fill className="object-cover" />
-              ) : (
-                <>
-                  <video src={m.url} className="size-full object-cover" muted />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <PlayIcon className="size-6 fill-white text-white" />
-                  </div>
-                </>
-              )}
-              <button
-                type="button"
-                disabled={deletingId === m.id}
-                onClick={() => handleDelete(m.id)}
-                className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
-              >
-                <XIcon className="size-3" />
-              </button>
+          {content.media.map((m, i) => (
+            <div key={m.id} className="flex flex-col gap-1">
+              <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                {m.type === "IMAGE" ? (
+                  <Image src={m.url} alt="" fill className="object-cover" />
+                ) : (
+                  <>
+                    <video src={m.url} className="size-full object-cover" muted />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <PlayIcon className="size-6 fill-white text-white" />
+                    </div>
+                  </>
+                )}
+                <button
+                  type="button"
+                  disabled={deletingId === m.id}
+                  onClick={() => handleDelete(m.id)}
+                  className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </div>
+              <div className="flex justify-center gap-1">
+                <button
+                  type="button"
+                  disabled={i === 0 || reordering}
+                  onClick={() => handleMove(i, -1)}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label="Mover antes"
+                >
+                  <ChevronUpIcon className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={i === content.media.length - 1 || reordering}
+                  onClick={() => handleMove(i, 1)}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label="Mover después"
+                >
+                  <ChevronDownIcon className="size-3.5" />
+                </button>
+              </div>
             </div>
           ))}
 
