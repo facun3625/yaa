@@ -641,7 +641,7 @@ function GroupStockRow({
       description: hasValue
         ? `Hay ${available} cargadas, ${sold} vendidas — quedan ${remaining}. Sumá unidades, o restá con un número negativo (ej: -5).`
         : "¿Cuántas unidades cargás para esta fecha?",
-      label: "Cantidad",
+      label: "Cantidad a sumar (o restar, en negativo)",
       type: "number",
       placeholder: "Ej: 20",
       confirmLabel: "Aplicar",
@@ -651,6 +651,25 @@ function GroupStockRow({
     if (!Number.isFinite(delta) || delta === 0) return;
     const base = available ?? 0;
     onChange({ unlimited: false, value: String(Math.max(0, base + delta)) });
+  }
+
+  // A diferencia de "Sumar/restar", esto no calcula nada sobre el valor
+  // anterior — lo reemplaza directo, para corregir de una un número que se
+  // cargó mal en vez de tener que hacer la cuenta al revés.
+  async function setStock() {
+    const raw = await prompt({
+      title: `Fijar stock de "${group.name}"`,
+      description: `Reemplaza el valor actual (${available ?? 0} cargadas) — no se suma, se pisa.`,
+      label: "Cantidad total cargada",
+      type: "number",
+      placeholder: "Ej: 20",
+      defaultValue: hasValue ? String(available) : "",
+      confirmLabel: "Fijar",
+    });
+    if (raw == null || raw.trim() === "") return;
+    const next = Number(raw);
+    if (!Number.isFinite(next) || next < 0) return;
+    onChange({ unlimited: false, value: String(next) });
   }
 
   return (
@@ -698,9 +717,16 @@ function GroupStockRow({
           </label>
 
           {!qty.unlimited && (
-            <Button type="button" variant={hasValue ? "outline" : "default"} size="sm" onClick={adjustStock}>
-              {hasValue ? "Ajustar stock" : "Cargar stock"}
-            </Button>
+            <>
+              <Button type="button" variant={hasValue ? "outline" : "default"} size="sm" onClick={adjustStock}>
+                {hasValue ? "Sumar/restar" : "Cargar stock"}
+              </Button>
+              {hasValue && (
+                <Button type="button" variant="outline" size="sm" onClick={setStock}>
+                  Fijar cantidad
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -18,6 +18,11 @@ export async function deleteOrders(orderIds: string[]) {
 
   await prisma.$transaction(async (tx) => {
     for (const order of orders) {
+      // Un pedido CANCELLED ya devolvió su stock al cancelarse/rechazarse
+      // (ver restoreStockForOrder en admin/pedidos/[id]/actions.ts) — restarlo
+      // de nuevo acá lo hacía descontar dos veces y quedar en negativo.
+      if (order.status === "CANCELLED") continue;
+
       const byGroup = new Map<string, number>();
       for (const item of order.items) {
         const groupId = item.productVariant.stockGroupId;
