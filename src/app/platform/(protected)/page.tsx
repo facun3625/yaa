@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRightIcon, StoreIcon, WalletIcon, TrendingUpIcon, HourglassIcon, ClockIcon, EyeIcon, AlertTriangleIcon, BanIcon } from "lucide-react";
+import { ArrowRightIcon, StoreIcon, WalletIcon, TrendingUpIcon, HourglassIcon, ClockIcon, EyeIcon, GlobeIcon, AlertTriangleIcon, BanIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default async function PlatformDashboard() {
     { label: "Tiendas totales", value: stats.totalTenants, icon: StoreIcon },
     { label: "En trial", value: stats.trialTenants, icon: HourglassIcon },
     { label: "Nuevas este mes", value: stats.newTenantsThisMonth, icon: ClockIcon },
+    { label: "Visitas al sitio (30 días)", value: stats.siteVisitsLast30Days, icon: GlobeIcon },
     { label: "Visitas a la demo (30 días)", value: stats.demoVisitsLast30Days, icon: EyeIcon },
   ];
 
@@ -45,7 +46,7 @@ export default async function PlatformDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
           <Card key={k.label}>
             <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
@@ -101,6 +102,22 @@ export default async function PlatformDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Visitas al sitio (30 días)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SalesBarChart
+            data={stats.siteVisitsByDay.map((b) => ({
+              key: b.key,
+              label: b.label,
+              value: b.value,
+              valueLabel: `${b.value} ${b.value === 1 ? "visita" : "visitas"}`,
+            }))}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <Card>

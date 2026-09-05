@@ -12,7 +12,28 @@ export type PlatformStats = {
   signupsByMonth: { key: string; label: string; value: number }[];
   demoVisitsLast30Days: number;
   demoVisitsByDay: { key: string; label: string; value: number }[];
+  siteVisitsLast30Days: number;
+  siteVisitsByDay: { key: string; label: string; value: number }[];
 };
+
+const dayFormatter = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit" });
+
+// Bucketea una lista de timestamps en los últimos 30 días, uno por día,
+// completando con 0 los días sin ningún registro — usado para demo y sitio.
+function bucketByDay(now: Date, timestamps: { createdAt: Date }[]) {
+  const buckets = new Map<string, { label: string; value: number }>();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    buckets.set(key, { label: dayFormatter.format(d), value: 0 });
+  }
+  for (const t of timestamps) {
+    const key = t.createdAt.toISOString().slice(0, 10);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.value += 1;
+  }
+  return [...buckets.entries()].map(([key, v]) => ({ key, ...v }));
+}
 
 export async function getPlatformStats(): Promise<PlatformStats> {
   const now = new Date();
@@ -35,6 +56,7 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     newTenantsThisMonth,
     recentTenants,
     demoVisitsLast30Days,
+    siteVisitsLast30Days,
   ] = await Promise.all([
     prisma.tenant.count({ where: REAL_TENANT }),
     prisma.tenant.count({ where: { ...REAL_TENANT, billingStatus: "TRIAL" } }),
@@ -61,6 +83,10 @@ export async function getPlatformStats(): Promise<PlatformStats> {
       where: { createdAt: { gte: thirtyDaysAgo } },
       select: { createdAt: true },
     }),
+    prisma.siteVisit.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+      select: { createdAt: true },
+    }),
   ]);
 
   const mrr = activePlans.reduce((sum, t) => sum + Number(t.plan?.priceMonthly ?? 0), 0);
@@ -80,19 +106,6 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     if (bucket) bucket.value += 1;
   }
 
-  const dayFormatter = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit" });
-  const dayBuckets = new Map<string, { label: string; value: number }>();
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    dayBuckets.set(key, { label: dayFormatter.format(d), value: 0 });
-  }
-  for (const v of demoVisitsLast30Days) {
-    const key = v.createdAt.toISOString().slice(0, 10);
-    const bucket = dayBuckets.get(key);
-    if (bucket) bucket.value += 1;
-  }
-
   return {
     totalTenants,
     activeTenants: Math.max(0, activeTenants),
@@ -104,6 +117,8 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     newTenantsThisMonth,
     signupsByMonth: [...monthBuckets.entries()].map(([key, v]) => ({ key, ...v })),
     demoVisitsLast30Days: demoVisitsLast30Days.length,
-    demoVisitsByDay: [...dayBuckets.entries()].map(([key, v]) => ({ key, ...v })),
+    demoVisitsByDay: bucketByDay(now, demoVisitsLast30Days),
+    siteVisitsLast30Days: siteVisitsLast30Days.length,
+    siteVisitsByDay: bucketByDay(now, siteVisitsLast30Days),
   };
 }

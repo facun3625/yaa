@@ -349,6 +349,18 @@ model DemoVisit {
   @@index([createdAt])
 }
 
+// Contador liviano de visitas al sitio de marketing (yaa.com.ar sin
+// subdominio, ver Home en src/app/page.tsx) — a diferencia de DemoVisit,
+// acá no se pide ningún dato de contacto: es solo tráfico anónimo, para
+// tener una idea de volumen, no de quién es.
+model SiteVisit {
+  id        String   @id @default(cuid())
+  path      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // ---------- Auth ----------
 
 enum Role {
