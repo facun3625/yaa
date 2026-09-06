@@ -361,6 +361,34 @@ model SiteVisit {
   @@index([createdAt])
 }
 
+// Historial del bot de ventas (src/lib/sales-bot.ts) — una fila por
+// conversación, para poder revisarlas después desde /platform/chats.
+// contactName/contactPhone quedan null hasta que la persona los deja
+// (needsHuman en true, ver askSalesBot) para que un humano la contacte.
+model SalesBotConversation {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  needsHuman   Boolean  @default(false)
+  contactName  String?
+  contactPhone String?
+
+  messages SalesBotMessage[]
+
+  @@index([createdAt])
+}
+
+model SalesBotMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  text           String
+  createdAt      DateTime @default(now())
+
+  conversation SalesBotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
 // ---------- Auth ----------
 
 enum Role {

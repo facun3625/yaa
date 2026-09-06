@@ -9,6 +9,18 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export type ChatMessage = { role: "user" | "model"; text: string };
+export type SalesBotReply = { reply: string; needsHuman: boolean };
+
+// El modelo tiene que devolver exactamente esta forma — así needsHuman es
+// un booleano real y no algo que hay que adivinar parseando texto libre.
+const RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    reply: { type: "string" },
+    needsHuman: { type: "boolean" },
+  },
+  required: ["reply", "needsHuman"],
+};
 
 async function buildSystemPrompt(): Promise<string> {
   const plans = await prisma.plan.findMany({ where: { active: true }, orderBy: { order: "asc" } });
@@ -26,20 +38,22 @@ async function buildSystemPrompt(): Promise<string> {
           return parts.join(" ");
         })
         .join("\n")
-    : "No hay planes activos cargados todavía — si preguntan por precios, sugerí escribir a hola@yaa.com.ar.";
+    : "No hay planes activos cargados todavía.";
 
   const faqText = FAQ_CATEGORIES.map(
     (c) => `## ${c.title}\n` + c.questions.map(([q, a]) => `P: ${q}\nR: ${a}`).join("\n\n"),
   ).join("\n\n");
 
-  return `Sos el asistente de ventas de YAA, una plataforma de pedidos online para negocios de cercanía (gastronomía, pastelerías, productores por encargo, comercios y servicios locales). Hablás con alguien que está evaluando si crear su tienda en YAA. Tu objetivo es responder sus dudas con precisión y, cuando tenga sentido, invitarlo a probar la demo o crear su tienda.
+  return `Sos el asistente de ventas de YAA, una plataforma de pedidos online para negocios de cercanía (gastronomía, pastelerías, productores por encargo, comercios y servicios locales).
 
-REGLAS ESTRICTAS:
-- Respondé solo con la información de este mensaje (planes y preguntas frecuentes de abajo). Si no tenés el dato, decilo con honestidad y sugerí escribir a hola@yaa.com.ar — nunca inventes precios, funciones, plazos ni promesas.
-- Sé breve: 2 a 4 oraciones por respuesta, salvo que pidan más detalle.
-- Tono cercano y directo, en español rioplatense, sin tecnicismos ni relleno.
-- Si preguntan algo que no tiene nada que ver con YAA, redirigí amablemente hacia temas de YAA.
-- Cuando corresponda, invitá a probar la demo en /demo o a crear la tienda en /registro — sin insistir en cada respuesta.
+REGLAS ESTRICTAS — no las rompas nunca:
+- Respondé ÚNICAMENTE con información que esté LITERALMENTE en "PLANES ACTUALES" o "PREGUNTAS FRECUENTES" de más abajo. No agregues nada que no esté ahí, no infieras, no completes con conocimiento general — ni sobre YAA ni sobre cualquier otro tema, aunque estés seguro de la respuesta.
+- Si la pregunta no se puede responder solo con esa información (incluye cualquier tema ajeno a YAA), decilo con honestidad en una frase corta y marcá needsHuman en true, para que un humano del equipo se contacte.
+- También marcá needsHuman en true si la persona pide expresamente hablar con alguien del equipo, dejar sus datos, o que la contacten.
+- Sé breve: 2 a 4 oraciones por respuesta.
+- Tono cercano y directo, en español rioplatense, sin tecnicismos.
+- Cuando corresponda (y sea información real de arriba), podés invitar a probar la demo en /demo o crear la tienda en /registro.
+- Devolvé siempre el JSON pedido: "reply" con el texto para mostrarle a la persona, "needsHuman" en true o false.
 
 PLANES ACTUALES:
 ${plansText}
@@ -50,8 +64,9 @@ ${faqText}`;
 
 // Google usa lo que se manda en el tier gratis para mejorar sus modelos —
 // aceptable acá porque no se pide ni se comparte ningún dato personal real
-// del visitante (nombre, tienda, etc.), solo su pregunta.
-export async function askSalesBot(history: ChatMessage[]): Promise<string> {
+// del visitante en el prompt (el nombre/teléfono que deja para que lo
+// contacten se guarda aparte, en SalesBotConversation, no viaja a Gemini).
+export async function askSalesBot(history: ChatMessage[]): Promise<SalesBotReply> {
   if (!GEMINI_API_KEY) throw new Error("Falta configurar GEMINI_API_KEY");
 
   const systemInstruction = await buildSystemPrompt();
@@ -64,7 +79,12 @@ export async function askSalesBot(history: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-        generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 400,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+        },
       }),
     },
   );
@@ -75,8 +95,11 @@ export async function askSalesBot(history: ChatMessage[]): Promise<string> {
   }
 
   const data = await res.json();
-  const text: string =
+  const rawText: string =
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
-  if (!text.trim()) throw new Error("Gemini no devolvió una respuesta");
-  return text.trim();
+  if (!rawText.trim()) throw new Error("Gemini no devolvió una respuesta");
+
+  const parsed = JSON.parse(rawText);
+  if (typeof parsed.reply !== "string") throw new Error("Gemini devolvió un JSON con forma inesperada");
+  return { reply: parsed.reply.trim(), needsHuman: Boolean(parsed.needsHuman) };
 }

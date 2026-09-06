@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { prisma } from "@/lib/prisma";
 import { askSalesBot, type ChatMessage } from "@/lib/sales-bot";
 
 // Ruta pública sin sesión (el chat vive en la landing, para quien todavía
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
   if (!rawMessages || rawMessages.length === 0) {
     return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
   }
+  const conversationId = typeof body?.conversationId === "string" ? body.conversationId : null;
 
   // Recorta historial y largo de cada mensaje — ni la conversación crece sin
   // límite ni alguien puede mandar un texto gigante para gastar tokens.
@@ -40,10 +42,34 @@ export async function POST(req: NextRequest) {
     role: m.role === "model" ? "model" : "user",
     text: String(m.text ?? "").slice(0, 1000),
   }));
+  const lastUserMessage = [...history].reverse().find((m) => m.role === "user");
 
   try {
-    const reply = await askSalesBot(history);
-    return NextResponse.json({ reply });
+    const [conversation, result] = await Promise.all([
+      conversationId
+        ? prisma.salesBotConversation.findUnique({ where: { id: conversationId } })
+        : prisma.salesBotConversation.create({ data: {} }),
+      askSalesBot(history),
+    ]);
+    const conv = conversation ?? (await prisma.salesBotConversation.create({ data: {} }));
+
+    await prisma.$transaction([
+      ...(lastUserMessage
+        ? [
+            prisma.salesBotMessage.create({
+              data: { conversationId: conv.id, role: "user", text: lastUserMessage.text },
+            }),
+          ]
+        : []),
+      prisma.salesBotMessage.create({
+        data: { conversationId: conv.id, role: "model", text: result.reply },
+      }),
+      ...(result.needsHuman && !conv.needsHuman
+        ? [prisma.salesBotConversation.update({ where: { id: conv.id }, data: { needsHuman: true } })]
+        : []),
+    ]);
+
+    return NextResponse.json({ conversationId: conv.id, reply: result.reply, needsHuman: result.needsHuman });
   } catch (err) {
     console.error("sales-bot error:", err);
     return NextResponse.json(

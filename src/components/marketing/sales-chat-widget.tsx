@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageCircleIcon, SendIcon, XIcon } from "lucide-react";
 
-type ChatMessage = { role: "user" | "model"; text: string };
+type ChatMessage = { role: "user" | "model"; text: string; needsHuman?: boolean };
 
 const GREETING: ChatMessage = {
   role: "model",
@@ -15,6 +15,7 @@ export function SalesChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,11 +35,12 @@ export function SalesChatWidget() {
       const res = await fetch("/api/sales-bot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ conversationId, messages: next }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error");
-      setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
+      setConversationId(data.conversationId);
+      setMessages((prev) => [...prev, { role: "model", text: data.reply, needsHuman: data.needsHuman }]);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -49,19 +51,24 @@ export function SalesChatWidget() {
     }
   }
 
+  const lastMessage = messages[messages.length - 1];
+  const showContactForm = lastMessage?.role === "model" && lastMessage.needsHuman;
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Cerrar chat" : "Abrir chat de YAA"}
-        className="fixed bottom-5 left-5 z-[100] flex size-14 items-center justify-center rounded-full bg-[#ff5a36] text-white shadow-[0_12px_36px_rgba(255,90,54,0.35)] transition duration-300 hover:-translate-y-1 hover:bg-[#e84220] sm:bottom-7 sm:left-7"
+        // Apilado arriba del botón de WhatsApp (que vive en bottom-5/7
+        // right-5/7) para no superponerse — los dos quedan del lado derecho.
+        className="fixed right-5 bottom-24 z-[100] flex size-14 items-center justify-center rounded-full bg-[#ff5a36] text-white shadow-[0_12px_36px_rgba(255,90,54,0.35)] transition duration-300 hover:-translate-y-1 hover:bg-[#e84220] sm:right-7 sm:bottom-28"
       >
         {open ? <XIcon className="size-6" /> : <MessageCircleIcon className="size-6" />}
       </button>
 
       {open && (
-        <div className="fixed bottom-24 left-5 z-[100] flex h-[70vh] max-h-[520px] w-[calc(100vw-2.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl bg-[#0b1220] shadow-2xl ring-1 ring-white/10 sm:bottom-28 sm:left-7">
+        <div className="fixed right-5 bottom-[168px] z-[100] flex h-[70vh] max-h-[520px] w-[calc(100vw-2.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl bg-[#0b1220] shadow-2xl ring-1 ring-white/10 sm:right-7 sm:bottom-[184px]">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-white">Asistente de YAA</span>
@@ -90,6 +97,9 @@ export function SalesChatWidget() {
                 Escribiendo…
               </div>
             )}
+            {showContactForm && conversationId && (
+              <ContactForm conversationId={conversationId} />
+            )}
           </div>
 
           <div className="flex items-center gap-2 border-t border-white/10 p-3">
@@ -114,5 +124,69 @@ export function SalesChatWidget() {
         </div>
       )}
     </>
+  );
+}
+
+function ContactForm({ conversationId }: { conversationId: string }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/sales-bot/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId, name, phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "No se pudo enviar");
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo enviar");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <div className="mr-auto max-w-[85%] rounded-2xl rounded-bl-sm bg-emerald-500/15 px-3.5 py-2 text-sm text-emerald-300">
+        ¡Gracias! Te vamos a escribir por WhatsApp a la brevedad.
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mr-auto flex w-[85%] flex-col gap-2 rounded-2xl rounded-bl-sm bg-white/10 p-3">
+      <span className="text-xs text-white/60">Dejanos tu nombre y WhatsApp y te contactamos:</span>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Tu nombre"
+        required
+        className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#ff7658]"
+      />
+      <input
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        placeholder="Tu WhatsApp"
+        required
+        className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#ff7658]"
+      />
+      {error && <span className="text-xs text-red-400">{error}</span>}
+      <button
+        type="submit"
+        disabled={pending}
+        className="h-9 rounded-lg bg-[#ff5a36] text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? "Enviando…" : "Enviar"}
+      </button>
+    </form>
   );
 }
