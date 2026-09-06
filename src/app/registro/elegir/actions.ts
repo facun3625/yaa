@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOnboardingUser } from "@/lib/require-onboarding";
 import { generateReferralCode } from "@/lib/referral-code";
+import { notifyPlatformNewReseller } from "@/lib/telegram";
 
 // Le genera el código de referido — no hace falta que nadie lo apruebe, ver
 // plan del programa de revendedores. A propósito NO toca `role`: seguir
@@ -23,6 +24,12 @@ export async function becomeReseller(redirectTo: string) {
     where: { id: session.user.id },
     data: { referralCode },
   });
+
+  notifyPlatformNewReseller({
+    name: session.user.name ?? null,
+    email: session.user.email ?? "",
+    referralCode,
+  }).catch(() => {});
 
   redirect(redirectTo);
 }

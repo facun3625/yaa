@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { notifyPlatformBotLead } from "@/lib/telegram";
 
 const contactSchema = z.object({
   conversationId: z.string().min(1),
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
     where: { id: parsed.data.conversationId },
     data: { contactName: parsed.data.name, contactPhone: parsed.data.phone, needsHuman: true },
   });
+
+  notifyPlatformBotLead({
+    name: parsed.data.name,
+    phone: parsed.data.phone,
+    topic: conversation.topic,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

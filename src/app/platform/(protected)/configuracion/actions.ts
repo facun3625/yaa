@@ -7,7 +7,15 @@ import { PLATFORM_BILLING_SETTINGS_ID, getPlatformTelegramSettings } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
 import { encryptSecret } from "@/lib/secret-box";
-import { sendTelegram, buildNewTenantMessage, SAMPLE_NEW_TENANT_NOTIFICATION } from "@/lib/telegram";
+import {
+  sendTelegram,
+  buildNewTenantMessage,
+  SAMPLE_NEW_TENANT_NOTIFICATION,
+  buildNewResellerMessage,
+  SAMPLE_NEW_RESELLER_NOTIFICATION,
+  buildBotLeadMessage,
+  SAMPLE_BOT_LEAD_NOTIFICATION,
+} from "@/lib/telegram";
 
 const whatsappSchema = z.object({
   enabled: z.boolean(),
@@ -90,17 +98,25 @@ export async function removePlatformTelegramSettings() {
   revalidatePath("/platform/configuracion");
 }
 
-export async function sendTestPlatformTelegram(draftToken: string, draftChatId: string) {
+export type PlatformTelegramTestKind = "tienda" | "revendedor" | "bot";
+
+const SAMPLE_MESSAGE_BY_KIND: Record<PlatformTelegramTestKind, string> = {
+  tienda: buildNewTenantMessage(SAMPLE_NEW_TENANT_NOTIFICATION),
+  revendedor: buildNewResellerMessage(SAMPLE_NEW_RESELLER_NOTIFICATION),
+  bot: buildBotLeadMessage(SAMPLE_BOT_LEAD_NOTIFICATION),
+};
+
+// Manda el mismo formato exacto que va a recibir con un evento real (con
+// datos de ejemplo) — así se puede validar cómo se va a ver cada tipo de
+// aviso, no solo que el token/chat funcionan.
+export async function sendTestPlatformTelegram(draftToken: string, draftChatId: string, kind: PlatformTelegramTestKind) {
   await requireSuperAdmin();
   const saved = await getPlatformTelegramSettings();
   const token = draftToken.trim() || saved.botToken || "";
   const chatId = draftChatId.trim() || saved.chatId || "";
   if (!token || !chatId) throw new Error("Faltan el token o el chat ID");
 
-  // Manda el mismo formato exacto que va a recibir con una tienda real (con
-  // datos de ejemplo) — así se puede validar cómo se va a ver, no solo que
-  // el token/chat funcionan.
-  const message = `✅ <b>Prueba</b> — así se va a ver el aviso real:\n\n${buildNewTenantMessage(SAMPLE_NEW_TENANT_NOTIFICATION)}`;
+  const message = `✅ <b>Prueba</b> — así se va a ver el aviso real:\n\n${SAMPLE_MESSAGE_BY_KIND[kind]}`;
   const result = await sendTelegram(token, chatId, message);
   if (!result.ok) throw new Error(result.error ?? "No se pudo enviar");
 }

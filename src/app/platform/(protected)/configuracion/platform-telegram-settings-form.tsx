@@ -7,12 +7,24 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { removePlatformTelegramSettings, savePlatformTelegramSettings, sendTestPlatformTelegram } from "./actions";
+import {
+  removePlatformTelegramSettings,
+  savePlatformTelegramSettings,
+  sendTestPlatformTelegram,
+  type PlatformTelegramTestKind,
+} from "./actions";
+
+const TEST_BUTTONS: { kind: PlatformTelegramTestKind; label: string }[] = [
+  { kind: "tienda", label: "Probar: tienda nueva" },
+  { kind: "revendedor", label: "Probar: revendedor nuevo" },
+  { kind: "bot", label: "Probar: lead del bot" },
+];
 
 export function PlatformTelegramSettingsForm({ configured, chatId: savedChatId }: { configured: boolean; chatId: string | null }) {
   const [botToken, setBotToken] = useState("");
   const [chatId, setChatId] = useState(savedChatId ?? "");
   const [pending, startTransition] = useTransition();
+  const [testingKind, setTestingKind] = useState<PlatformTelegramTestKind | null>(null);
   const [testPending, startTestTransition] = useTransition();
   const [removePending, startRemoveTransition] = useTransition();
 
@@ -31,10 +43,11 @@ export function PlatformTelegramSettingsForm({ configured, chatId: savedChatId }
     });
   }
 
-  function sendTest() {
+  function sendTest(kind: PlatformTelegramTestKind) {
+    setTestingKind(kind);
     startTestTransition(async () => {
       try {
-        await sendTestPlatformTelegram(botToken, chatId);
+        await sendTestPlatformTelegram(botToken, chatId, kind);
         toast.success("Mensaje de prueba enviado — revisá tu Telegram");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo enviar el mensaje de prueba");
@@ -62,9 +75,10 @@ export function PlatformTelegramSettingsForm({ configured, chatId: savedChatId }
           <SendIcon className="size-5" />
         </span>
         <div>
-          <h2 className="font-semibold">Aviso de tienda nueva por Telegram</h2>
+          <h2 className="font-semibold">Avisos por Telegram</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Te manda un mensaje a vos (no a las tiendas) apenas alguien completa el alta en /registro.
+            Te manda un mensaje a vos (no a las tiendas) cuando: se crea una tienda nueva, alguien saca su código de
+            revendedor, o alguien deja nombre y WhatsApp en el bot de ventas.
           </p>
         </div>
       </div>
@@ -101,9 +115,18 @@ export function PlatformTelegramSettingsForm({ configured, chatId: savedChatId }
         <Button type="button" size="sm" onClick={save} disabled={pending}>
           {pending ? "Guardando..." : "Guardar"}
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={sendTest} disabled={testPending}>
-          {testPending ? "Enviando..." : "Mandar mensaje de prueba"}
-        </Button>
+        {TEST_BUTTONS.map((b) => (
+          <Button
+            key={b.kind}
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => sendTest(b.kind)}
+            disabled={testPending}
+          >
+            {testPending && testingKind === b.kind ? "Enviando..." : b.label}
+          </Button>
+        ))}
         {configured && (
           <Button
             type="button"
