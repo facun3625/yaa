@@ -117,6 +117,14 @@ model PlatformBillingSettings {
   marketingWhatsappEnabled Boolean  @default(false)
   marketingWhatsappNumber  String?
   marketingWhatsappMessage String?
+  // Sección "armamos tu tienda por vos" de la landing — precio y pasos
+  // editables sin tocar código, independientes de los planes de suscripción.
+  // Arranca en false a propósito: recién se prende desde /platform/configuracion
+  // una vez que el super admin cargó precio y pasos reales — mostrarla antes
+  // con $0 y sin pasos se vería rota en la landing pública.
+  setupServiceEnabled      Boolean  @default(false)
+  setupServicePrice        Decimal  @default(0)
+  setupServiceSteps        String[] @default([])
   updatedAt                DateTime @updatedAt
 }
 
@@ -371,6 +379,10 @@ model SalesBotConversation {
   needsHuman   Boolean  @default(false)
   contactName  String?
   contactPhone String?
+  // null = charla genérica de preguntas. "SETUP_SERVICE" = entró desde el
+  // botón "Armamos tu tienda por vos" de la landing — para distinguirlas
+  // en /platform/chats.
+  topic        String?
 
   messages SalesBotMessage[]
 

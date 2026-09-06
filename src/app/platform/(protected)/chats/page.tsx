@@ -3,6 +3,10 @@ import { Badge } from "@/components/ui/badge";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
+const TOPIC_LABELS: Record<string, string> = {
+  SETUP_SERVICE: "Armado de tienda",
+};
+
 export default async function SalesBotChatsPage() {
   const conversations = await prisma.salesBotConversation.findMany({
     orderBy: { createdAt: "desc" },
@@ -37,11 +41,16 @@ export default async function SalesBotChatsPage() {
                     {dateFormatter.format(c.createdAt)} · {c.messages.length} mensajes
                   </span>
                 </div>
-                {c.needsHuman && (
-                  <Badge className={c.contactName ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500"}>
-                    {c.contactName ? "Contacto dejado" : "Pidió humano"}
-                  </Badge>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {c.topic && (
+                    <Badge className="bg-violet-500/15 text-violet-500">{TOPIC_LABELS[c.topic] ?? c.topic}</Badge>
+                  )}
+                  {c.needsHuman && (
+                    <Badge className={c.contactName ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500"}>
+                      {c.contactName ? "Contacto dejado" : "Pidió humano"}
+                    </Badge>
+                  )}
+                </div>
               </summary>
               <div className="mt-3 flex flex-col gap-2 border-t pt-3">
                 {c.messages.map((m) => (

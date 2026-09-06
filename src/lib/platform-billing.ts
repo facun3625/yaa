@@ -46,6 +46,15 @@ export async function getPlatformMarketingSettings() {
   };
 }
 
+export async function getSetupServiceSettings() {
+  const settings = await getPlatformBillingSettings();
+  return {
+    enabled: settings.setupServiceEnabled,
+    price: Number(settings.setupServicePrice),
+    steps: settings.setupServiceSteps,
+  };
+}
+
 export function getRootUrl() {
   const rootDomain = process.env.ROOT_DOMAIN ?? "localhost:3010";
   return `${rootDomain.startsWith("localhost") ? "http" : "https"}://${rootDomain}`;

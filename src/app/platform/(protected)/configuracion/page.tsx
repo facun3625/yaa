@@ -1,8 +1,12 @@
-import { getPlatformMarketingSettings } from "@/lib/platform-billing";
+import { getPlatformMarketingSettings, getSetupServiceSettings } from "@/lib/platform-billing";
 import { MarketingSettingsForm } from "./marketing-settings-form";
+import { SetupServiceSettingsForm } from "./setup-service-settings-form";
 
 export default async function PlatformSettingsPage() {
-  const settings = await getPlatformMarketingSettings();
+  const [settings, setupService] = await Promise.all([
+    getPlatformMarketingSettings(),
+    getSetupServiceSettings(),
+  ]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -15,6 +19,12 @@ export default async function PlatformSettingsPage() {
         enabled={settings.whatsappEnabled}
         number={settings.whatsappNumber}
         message={settings.whatsappMessage}
+      />
+
+      <SetupServiceSettingsForm
+        enabled={setupService.enabled}
+        price={setupService.price}
+        steps={setupService.steps}
       />
     </div>
   );

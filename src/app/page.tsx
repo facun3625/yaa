@@ -13,6 +13,7 @@ import { getRemainingForVariants } from "@/lib/stock";
 import { YaaLanding } from "@/components/marketing/yaa-landing";
 import { canTenantReceiveOrders } from "@/lib/billing-status";
 import { getResellerSettings, getCommissionTiers } from "@/lib/reseller-commission";
+import { getSetupServiceSettings } from "@/lib/platform-billing";
 
 const saleDateFormatter = new Intl.DateTimeFormat("es-AR", {
   weekday: "long",
@@ -141,10 +142,11 @@ export default async function Home({
       prisma.siteVisit.create({ data: { path: "/" } }).catch(() => {});
     }
 
-    const [publicPlans, resellerSettings, resellerTiers] = await Promise.all([
+    const [publicPlans, resellerSettings, resellerTiers, setupService] = await Promise.all([
       prisma.plan.findMany({ where: { active: true }, orderBy: { order: "asc" } }),
       getResellerSettings(),
       getCommissionTiers(),
+      getSetupServiceSettings(),
     ]);
     // Organization schema: lo que le permite a Google entender que "YAA" es
     // una marca (no una palabra suelta) — habilita el logo en el panel de
@@ -183,6 +185,7 @@ export default async function Home({
             activationBonusDays: resellerSettings.activationBonusDays,
           }}
           resellerTiers={resellerTiers.map((tier) => ({ minActiveStores: tier.minActiveStores, percent: Number(tier.percent) }))}
+          setupService={setupService}
         />
       </>
     );

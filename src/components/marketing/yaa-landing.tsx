@@ -6,6 +6,7 @@ import { AnchorScrollLink } from "@/components/marketing/anchor-scroll-link";
 import { YaaReveal } from "@/components/marketing/yaa-reveal";
 import { YaaFaqList } from "@/components/marketing/yaa-faq-list";
 import { YaaPlans, type PublicPlan } from "@/components/marketing/yaa-plans";
+import { SetupServiceSection } from "@/components/marketing/setup-service-section";
 
 const contactHref = "mailto:hola@yaa.com.ar?subject=Quiero%20mi%20tienda%20online%20con%20YAA";
 const signupHref = "/registro";
@@ -61,10 +62,12 @@ export function YaaLanding({
   plans,
   resellerSettings,
   resellerTiers,
+  setupService,
 }: {
   plans: PublicPlan[];
   resellerSettings: ResellerSettings;
   resellerTiers: ResellerTier[];
+  setupService: { enabled: boolean; price: number; steps: string[] };
 }) {
   // Mismo criterio que YaaPlans: el plan marcado como "más elegido", o el
   // del medio si todavía no se marcó ninguno.
@@ -265,6 +268,8 @@ export function YaaLanding({
           })}
         </div>
       </section>
+
+      {setupService.enabled && <SetupServiceSection price={setupService.price} steps={setupService.steps} />}
 
       <section id="socios" className="relative scroll-mt-20 overflow-hidden bg-[#ff5a36] py-24 text-white md:py-28">
         <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-24 select-none text-[18rem] font-black leading-none text-white/[.08] md:text-[28rem]">%</div>

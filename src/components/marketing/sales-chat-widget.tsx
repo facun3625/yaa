@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { MessageCircleIcon, SendIcon, XIcon } from "lucide-react";
 
 type ChatMessage = { role: "user" | "model"; text: string; needsHuman?: boolean };
@@ -10,7 +10,22 @@ const GREETING: ChatMessage = {
   text: "¡Hola! Soy el asistente de YAA 👋 ¿Qué querés saber sobre precios, funciones o cómo armar tu tienda?",
 };
 
-export function SalesChatWidget() {
+type SalesChatContextValue = {
+  // Abre el chat directo en modo "dejame tus datos", sin pasar por
+  // preguntas y respuestas — usado por botones puntuales de la landing
+  // (ej. "Armamos tu tienda por vos") que ya saben qué quiere la persona.
+  openWithTopic: (topic: string, greeting: string) => void;
+};
+
+const SalesChatContext = createContext<SalesChatContextValue | null>(null);
+
+export function useSalesChat() {
+  const ctx = useContext(SalesChatContext);
+  if (!ctx) throw new Error("useSalesChat debe usarse dentro de SalesChatProvider");
+  return ctx;
+}
+
+export function SalesChatProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
@@ -21,6 +36,24 @@ export function SalesChatWidget() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
+
+  async function openWithTopic(topic: string, greeting: string) {
+    setOpen(true);
+    setMessages([{ role: "model", text: greeting, needsHuman: true }]);
+    setConversationId(null);
+    try {
+      const res = await fetch("/api/sales-bot/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, greeting }),
+      });
+      const data = await res.json();
+      if (res.ok) setConversationId(data.conversationId);
+    } catch {
+      // Si falla, el formulario de contacto no se muestra hasta tener
+      // conversationId — la persona puede reintentar abriendo el chat de nuevo.
+    }
+  }
 
   async function handleSend() {
     const text = input.trim();
@@ -55,7 +88,9 @@ export function SalesChatWidget() {
   const showContactForm = lastMessage?.role === "model" && lastMessage.needsHuman;
 
   return (
-    <>
+    <SalesChatContext.Provider value={{ openWithTopic }}>
+      {children}
+
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -123,7 +158,7 @@ export function SalesChatWidget() {
           </div>
         </div>
       )}
-    </>
+    </SalesChatContext.Provider>
   );
 }
 
