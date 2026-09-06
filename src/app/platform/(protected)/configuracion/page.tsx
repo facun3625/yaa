@@ -1,31 +1,56 @@
-import { getPlatformMarketingSettings, getSetupServiceSettings } from "@/lib/platform-billing";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getPlatformMarketingSettings, getSetupServiceSettings, getPlatformTelegramSettings } from "@/lib/platform-billing";
 import { MarketingSettingsForm } from "./marketing-settings-form";
 import { SetupServiceSettingsForm } from "./setup-service-settings-form";
+import { PlatformTelegramSettingsForm } from "./platform-telegram-settings-form";
 
 export default async function PlatformSettingsPage() {
-  const [settings, setupService] = await Promise.all([
+  const [settings, setupService, telegram] = await Promise.all([
     getPlatformMarketingSettings(),
     getSetupServiceSettings(),
+    getPlatformTelegramSettings(),
   ]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold">Configuración</h1>
         <p className="text-sm text-muted-foreground">Canales de contacto y opciones generales de la plataforma.</p>
       </div>
 
-      <MarketingSettingsForm
-        enabled={settings.whatsappEnabled}
-        number={settings.whatsappNumber}
-        message={settings.whatsappMessage}
-      />
+      <Tabs defaultValue="whatsapp">
+        <TabsList className="w-full">
+          <TabsTrigger value="whatsapp" className="flex-1">
+            WhatsApp
+          </TabsTrigger>
+          <TabsTrigger value="setup-service" className="flex-1">
+            Armado de tienda
+          </TabsTrigger>
+          <TabsTrigger value="telegram" className="flex-1">
+            Telegram
+          </TabsTrigger>
+        </TabsList>
 
-      <SetupServiceSettingsForm
-        enabled={setupService.enabled}
-        price={setupService.price}
-        steps={setupService.steps}
-      />
+        <TabsContent value="whatsapp">
+          <MarketingSettingsForm
+            enabled={settings.whatsappEnabled}
+            number={settings.whatsappNumber}
+            message={settings.whatsappMessage}
+          />
+        </TabsContent>
+
+        <TabsContent value="setup-service">
+          <SetupServiceSettingsForm
+            enabled={setupService.enabled}
+            price={setupService.price}
+            steps={setupService.steps}
+          />
+        </TabsContent>
+
+        <TabsContent value="telegram">
+          <PlatformTelegramSettingsForm configured={telegram.configured} chatId={telegram.chatId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -55,6 +55,17 @@ export async function getSetupServiceSettings() {
   };
 }
 
+export async function getPlatformTelegramSettings() {
+  const settings = await getPlatformBillingSettings();
+  const botToken = decryptSecret(settings.platformTelegramBotTokenEnc);
+  const chatId = settings.platformTelegramChatId;
+  return {
+    configured: Boolean(botToken && chatId),
+    botToken,
+    chatId,
+  };
+}
+
 export function getRootUrl() {
   const rootDomain = process.env.ROOT_DOMAIN ?? "localhost:3010";
   return `${rootDomain.startsWith("localhost") ? "http" : "https"}://${rootDomain}`;

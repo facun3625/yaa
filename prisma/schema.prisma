@@ -108,24 +108,28 @@ model BillingPayment {
 // viven como secretos del servidor. Esto permite editar la política de
 // cobro desde Platform sin exponer llaves capaces de mover dinero.
 model PlatformBillingSettings {
-  id                       String   @id @default("global")
-  enabled                  Boolean  @default(false)
-  currency                 String   @default("ARS")
-  graceDays                Int      @default(5)
-  accessTokenEnc           String?
-  webhookSecretEnc         String?
-  marketingWhatsappEnabled Boolean  @default(false)
-  marketingWhatsappNumber  String?
-  marketingWhatsappMessage String?
+  id                          String   @id @default("global")
+  enabled                     Boolean  @default(false)
+  currency                    String   @default("ARS")
+  graceDays                   Int      @default(5)
+  accessTokenEnc              String?
+  webhookSecretEnc            String?
+  // Aviso al equipo de YAA (no a una tienda) cuando se crea una tienda
+  // nueva desde /registro — ver notifyPlatformNewTenant en lib/telegram.ts.
+  platformTelegramBotTokenEnc String?
+  platformTelegramChatId      String?
+  marketingWhatsappEnabled    Boolean  @default(false)
+  marketingWhatsappNumber     String?
+  marketingWhatsappMessage    String?
   // Sección "armamos tu tienda por vos" de la landing — precio y pasos
   // editables sin tocar código, independientes de los planes de suscripción.
   // Arranca en false a propósito: recién se prende desde /platform/configuracion
   // una vez que el super admin cargó precio y pasos reales — mostrarla antes
   // con $0 y sin pasos se vería rota en la landing pública.
-  setupServiceEnabled      Boolean  @default(false)
-  setupServicePrice        Decimal  @default(0)
-  setupServiceSteps        String[] @default([])
-  updatedAt                DateTime @updatedAt
+  setupServiceEnabled         Boolean  @default(false)
+  setupServicePrice           Decimal  @default(0)
+  setupServiceSteps           String[] @default([])
+  updatedAt                   DateTime @updatedAt
 }
 
 model BillingWebhookEvent {

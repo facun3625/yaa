@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { PLATFORM_BILLING_SETTINGS_ID } from "@/lib/platform-billing";
+import { PLATFORM_BILLING_SETTINGS_ID, getPlatformTelegramSettings } from "@/lib/platform-billing";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/require-super-admin";
+import { encryptSecret } from "@/lib/secret-box";
+import { sendTelegram, buildNewTenantMessage, SAMPLE_NEW_TENANT_NOTIFICATION } from "@/lib/telegram";
 
 const whatsappSchema = z.object({
   enabled: z.boolean(),
@@ -40,6 +42,67 @@ export async function saveMarketingWhatsapp(formData: FormData) {
 
   revalidatePath("/", "layout");
   revalidatePath("/platform/configuracion");
+}
+
+// ---------- Telegram (aviso al equipo de YAA por tienda nueva) ----------
+
+const platformTelegramSchema = z.object({
+  botToken: z.string().optional(),
+  chatId: z.string().min(1, "Ingresá el chat ID"),
+});
+
+export async function savePlatformTelegramSettings(formData: FormData) {
+  await requireSuperAdmin();
+  const parsed = platformTelegramSchema.parse({
+    botToken: formData.get("botToken") || undefined,
+    chatId: formData.get("chatId"),
+  });
+
+  // El token es secreto: si el campo vino vacío es porque ya estaba
+  // cargado y no lo tocaron — no lo pisamos.
+  const existing = await prisma.platformBillingSettings.findUnique({ where: { id: PLATFORM_BILLING_SETTINGS_ID } });
+  if (!parsed.botToken && !existing?.platformTelegramBotTokenEnc) {
+    throw new Error("Ingresá el token del bot");
+  }
+
+  await prisma.platformBillingSettings.upsert({
+    where: { id: PLATFORM_BILLING_SETTINGS_ID },
+    create: {
+      id: PLATFORM_BILLING_SETTINGS_ID,
+      platformTelegramChatId: parsed.chatId,
+      platformTelegramBotTokenEnc: parsed.botToken ? encryptSecret(parsed.botToken) : undefined,
+    },
+    update: {
+      platformTelegramChatId: parsed.chatId,
+      ...(parsed.botToken ? { platformTelegramBotTokenEnc: encryptSecret(parsed.botToken) } : {}),
+    },
+  });
+
+  revalidatePath("/platform/configuracion");
+}
+
+export async function removePlatformTelegramSettings() {
+  await requireSuperAdmin();
+  await prisma.platformBillingSettings.updateMany({
+    where: { id: PLATFORM_BILLING_SETTINGS_ID },
+    data: { platformTelegramBotTokenEnc: null, platformTelegramChatId: null },
+  });
+  revalidatePath("/platform/configuracion");
+}
+
+export async function sendTestPlatformTelegram(draftToken: string, draftChatId: string) {
+  await requireSuperAdmin();
+  const saved = await getPlatformTelegramSettings();
+  const token = draftToken.trim() || saved.botToken || "";
+  const chatId = draftChatId.trim() || saved.chatId || "";
+  if (!token || !chatId) throw new Error("Faltan el token o el chat ID");
+
+  // Manda el mismo formato exacto que va a recibir con una tienda real (con
+  // datos de ejemplo) — así se puede validar cómo se va a ver, no solo que
+  // el token/chat funcionan.
+  const message = `✅ <b>Prueba</b> — así se va a ver el aviso real:\n\n${buildNewTenantMessage(SAMPLE_NEW_TENANT_NOTIFICATION)}`;
+  const result = await sendTelegram(token, chatId, message);
+  if (!result.ok) throw new Error(result.error ?? "No se pudo enviar");
 }
 
 const setupServiceSchema = z.object({

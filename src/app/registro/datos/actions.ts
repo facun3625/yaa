@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { requireOnboardingUser } from "@/lib/require-onboarding";
+import { notifyPlatformNewTenant } from "@/lib/telegram";
 
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "api", "platform", "mail", "ftp", "login", "registro"]);
 
@@ -69,7 +70,7 @@ export async function createTenantFromOnboarding(formData: FormData) {
       pendingBillingCycle: true,
       pendingSubscriptionId: true,
       pendingSubscriptionStatus: true,
-      pendingPlan: { select: { trialDays: true } },
+      pendingPlan: { select: { trialDays: true, name: true } },
     },
   });
   if (!user?.pendingPlanId || !user.pendingPlan) {
@@ -227,6 +228,16 @@ export async function createTenantFromOnboarding(formData: FormData) {
 
     return tenant;
   }, { isolationLevel: "Serializable" });
+
+  // Fire-and-forget: aviso al equipo de YAA de que hay una tienda nueva —
+  // no debe demorar ni romper el alta si Telegram falla o no está configurado.
+  notifyPlatformNewTenant({
+    storeName: parsed.storeName,
+    subdomain: tenant.subdomain,
+    planName: user.pendingPlan.name,
+    ownerName: session.user.name ?? null,
+    ownerEmail: session.user.email ?? "",
+  }).catch(() => {});
 
   // Token de un solo uso para entrar directo al panel de la tienda nueva
   // sin pedirle de nuevo el email/contraseña que recién escribió — el

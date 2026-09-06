@@ -1,4 +1,5 @@
 import { getTelegramSettings } from "@/lib/settings";
+import { getPlatformTelegramSettings } from "@/lib/platform-billing";
 import { formatPrice } from "@/lib/format";
 import { FULFILLMENT_TYPE_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/order-status";
 import type { FulfillmentType, PaymentMethodType } from "@/generated/prisma/client";
@@ -86,4 +87,40 @@ export async function notifyNewOrder(tenantId: string, order: NewOrderNotificati
 
   const result = await sendTelegram(settings.botToken!, settings.chatId!, buildMessage(order));
   if (!result.ok) console.error("notifyNewOrder: Telegram falló —", result.error);
+}
+
+type NewTenantNotification = {
+  storeName: string;
+  subdomain: string;
+  planName: string;
+  ownerName: string | null;
+  ownerEmail: string;
+};
+
+export const SAMPLE_NEW_TENANT_NOTIFICATION: NewTenantNotification = {
+  storeName: "Pizzería de Ejemplo",
+  subdomain: "pizzeria-ejemplo",
+  planName: "Negocio",
+  ownerName: "Facundo Arteaga",
+  ownerEmail: "facundo@ejemplo.com",
+};
+
+export function buildNewTenantMessage(tenant: NewTenantNotification): string {
+  const lines: string[] = [];
+  lines.push(`🎉 <b>Nueva tienda</b>`);
+  lines.push("");
+  lines.push(`🏪 ${escapeHtml(tenant.storeName)} (${escapeHtml(tenant.subdomain)})`);
+  lines.push(`📦 Plan: ${escapeHtml(tenant.planName)}`);
+  lines.push(`👤 ${escapeHtml(tenant.ownerName ?? "Sin nombre")} — ${escapeHtml(tenant.ownerEmail)}`);
+  return lines.join("\n");
+}
+
+// Fire-and-forget, igual que notifyNewOrder — al equipo de YAA (super
+// admin), no a la tienda. Se llama apenas se completa /registro/datos.
+export async function notifyPlatformNewTenant(tenant: NewTenantNotification): Promise<void> {
+  const settings = await getPlatformTelegramSettings();
+  if (!settings.configured) return;
+
+  const result = await sendTelegram(settings.botToken!, settings.chatId!, buildNewTenantMessage(tenant));
+  if (!result.ok) console.error("notifyPlatformNewTenant: Telegram falló —", result.error);
 }
