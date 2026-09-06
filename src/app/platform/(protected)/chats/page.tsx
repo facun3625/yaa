@@ -5,6 +5,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: 
 
 const TOPIC_LABELS: Record<string, string> = {
   SETUP_SERVICE: "Armado de tienda",
+  CONTACT_CTA: "Quiero empezar",
 };
 
 export default async function SalesBotChatsPage() {

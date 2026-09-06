@@ -7,6 +7,7 @@ import { YaaReveal } from "@/components/marketing/yaa-reveal";
 import { YaaFaqList } from "@/components/marketing/yaa-faq-list";
 import { YaaPlans, type PublicPlan } from "@/components/marketing/yaa-plans";
 import { SetupServiceSection } from "@/components/marketing/setup-service-section";
+import { ContactCtaButton } from "@/components/marketing/contact-cta-button";
 
 const contactHref = "mailto:hola@yaa.com.ar?subject=Quiero%20mi%20tienda%20online%20con%20YAA";
 const signupHref = "/registro";
@@ -330,7 +331,7 @@ export function YaaLanding({
             <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-[#ff5a36]">Hablemos</p>
             <h2 className="mx-auto max-w-xl text-3xl font-extrabold tracking-tight md:text-4xl">Tu tienda puede empezar acá.</h2>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-black/55">Contanos sobre tu negocio y te ayudamos a encontrar la mejor forma de llevarlo online.</p>
-            <a href={contactHref} className="yaa-btn yaa-btn-primary mt-8 h-12 px-6">Escribinos <ArrowRight className="size-[18px]" /></a>
+            <ContactCtaButton label="Escribinos" className="yaa-btn yaa-btn-primary mt-8 h-12 px-6" />
           </div>
         </div>
       </section>

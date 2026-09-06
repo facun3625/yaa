@@ -168,6 +168,7 @@ type BotLeadNotification = {
 
 const BOT_LEAD_TOPIC_LABELS: Record<string, string> = {
   SETUP_SERVICE: "Armado de tienda",
+  CONTACT_CTA: "Quiero empezar",
 };
 
 export const SAMPLE_BOT_LEAD_NOTIFICATION: BotLeadNotification = {
