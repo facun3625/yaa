@@ -104,8 +104,11 @@ export default async function PlatformDashboard() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-sm font-medium">Visitas al sitio (30 días)</CardTitle>
+          <Link href="/platform/trafico" className="text-xs font-medium text-primary hover:underline">
+            Ver detalle
+          </Link>
         </CardHeader>
         <CardContent>
           <SalesBarChart

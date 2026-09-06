@@ -6,6 +6,7 @@ import { YaaPublicNav } from "@/components/marketing/yaa-public-nav";
 import { YaaFaqList } from "@/components/marketing/yaa-faq-list";
 import { YaaReveal } from "@/components/marketing/yaa-reveal";
 import { FAQ_CATEGORIES } from "@/lib/faq-content";
+import { trackSiteVisit } from "@/lib/site-visit";
 
 export const metadata: Metadata = {
   title: "Preguntas frecuentes · YAA",
@@ -14,7 +15,9 @@ export const metadata: Metadata = {
 
 const categories = FAQ_CATEGORIES;
 
-export default function FrequentlyAskedQuestionsPage() {
+export default async function FrequentlyAskedQuestionsPage() {
+  await trackSiteVisit("/preguntas-frecuentes");
+
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#1d1713]">
       <YaaPublicNav />

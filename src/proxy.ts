@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import authConfig from "@/auth.config";
@@ -5,6 +6,13 @@ import authConfig from "@/auth.config";
 const { auth } = NextAuth(authConfig);
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN ?? "localhost:3010";
+
+// Cookie anónima (sin datos personales) para distinguir visitantes
+// distintos en las estadísticas del sitio de marketing — ver
+// lib/site-visit.ts. Solo tiene sentido en el dominio raíz: cada
+// subdominio de tienda vería su propia cookie igual (los navegadores las
+// aíslan por host), así que ahí ni se calcula.
+const VISITOR_COOKIE = "yaa_vid";
 
 function getSubdomain(host: string, rootDomain: string): string | null {
   const cleanHost = host.split(":")[0];
@@ -38,29 +46,43 @@ export default auth((req) => {
   }
   requestHeaders.set("x-pathname", pathname);
 
+  const isRoot = isRootHost(host, ROOT_DOMAIN);
+  const existingVisitorId = isRoot ? req.cookies.get(VISITOR_COOKIE)?.value : undefined;
+  const visitorId = isRoot ? (existingVisitorId ?? randomUUID()) : null;
+  if (visitorId) requestHeaders.set("x-visitor-id", visitorId);
+
   const isAdminRoute = pathname.startsWith("/admin");
   const isPlatformRoute = pathname.startsWith("/platform") && pathname !== "/platform/login";
 
+  let response: NextResponse;
   if (!isAdminRoute && !isPlatformRoute) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  } else {
+    const user = req.auth?.user;
+    if (!user) {
+      const loginPath = isPlatformRoute ? "/platform/login" : "/login";
+      const loginUrl = new URL(loginPath, req.nextUrl.origin);
+      if (!isPlatformRoute) loginUrl.searchParams.set("callbackUrl", pathname);
+      response = NextResponse.redirect(loginUrl);
+    } else if (isPlatformRoute && user.role !== "SUPER_ADMIN") {
+      response = NextResponse.redirect(new URL("/", req.nextUrl.origin));
+    } else if (isAdminRoute && user.role !== "ADMIN") {
+      response = NextResponse.redirect(new URL("/", req.nextUrl.origin));
+    } else {
+      response = NextResponse.next({ request: { headers: requestHeaders } });
+    }
   }
 
-  const user = req.auth?.user;
-  if (!user) {
-    const loginPath = isPlatformRoute ? "/platform/login" : "/login";
-    const loginUrl = new URL(loginPath, req.nextUrl.origin);
-    if (!isPlatformRoute) loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (visitorId && !existingVisitorId) {
+    response.cookies.set(VISITOR_COOKIE, visitorId, {
+      maxAge: 60 * 60 * 24 * 365,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
   }
 
-  if (isPlatformRoute && user.role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/", req.nextUrl.origin));
-  }
-  if (isAdminRoute && user.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/", req.nextUrl.origin));
-  }
-
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return response;
 });
 
 export const config = {

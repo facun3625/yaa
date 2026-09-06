@@ -7,6 +7,7 @@ import { YaaPublicFooter } from "@/components/marketing/yaa-public-footer";
 import { YaaPublicNav } from "@/components/marketing/yaa-public-nav";
 import { YaaReveal } from "@/components/marketing/yaa-reveal";
 import { YaaFaqList } from "@/components/marketing/yaa-faq-list";
+import { trackSiteVisit } from "@/lib/site-visit";
 
 export const metadata: Metadata = {
   title: "Socios comerciales · YAA",
@@ -21,6 +22,8 @@ const steps = [
 ];
 
 export default async function ResellersPage() {
+  await trackSiteVisit("/revendedores");
+
   const [settings, tiers, referencePlan] = await Promise.all([
     prisma.resellerSettings.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } }),
     prisma.resellerCommissionTier.findMany({ orderBy: { minActiveStores: "asc" } }),

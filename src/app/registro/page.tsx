@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { RegistroForm } from "./registro-form";
 import { AlreadyLoggedInBanner } from "./already-logged-in-banner";
 import { OnboardingCredit } from "./onboarding-brand";
+import { trackSiteVisit } from "@/lib/site-visit";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "admin de una tienda",
@@ -20,6 +21,7 @@ export default async function RegistroPage({
   searchParams: Promise<{ ref?: string }>;
 }) {
   const { ref } = await searchParams;
+  await trackSiteVisit("/registro");
   const session = await auth();
 
   // El mínimo entre los planes activos: lo que se le puede prometer acá

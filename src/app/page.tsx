@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 import { StoreHero } from "@/components/catalog/store-hero";
 import { StoreFooter } from "@/components/catalog/store-footer";
 import { WelcomePopup } from "@/components/catalog/welcome-popup";
@@ -14,6 +12,7 @@ import { YaaLanding } from "@/components/marketing/yaa-landing";
 import { canTenantReceiveOrders } from "@/lib/billing-status";
 import { getResellerSettings, getCommissionTiers } from "@/lib/reseller-commission";
 import { getSetupServiceSettings } from "@/lib/platform-billing";
+import { trackSiteVisit } from "@/lib/site-visit";
 
 const saleDateFormatter = new Intl.DateTimeFormat("es-AR", {
   weekday: "long",
@@ -132,15 +131,7 @@ export default async function Home({
   const { fecha } = await searchParams;
   const tenant = await getCurrentTenant();
   if (!tenant) {
-    // Contador de tráfico del sitio de marketing — no de un tenant, así
-    // que solo corre acá. Se descarta el prefetch de <Link> (Next manda
-    // ese header en esos pedidos) para no inflar el número con hovers que
-    // nunca se convierten en una visita real. Fire-and-forget: no debe
-    // sumarle latencia a la landing ni romperla si la base falla.
-    const hdrs = await headers();
-    if (!hdrs.get("next-router-prefetch")) {
-      prisma.siteVisit.create({ data: { path: "/" } }).catch(() => {});
-    }
+    await trackSiteVisit("/");
 
     const [publicPlans, resellerSettings, resellerTiers, setupService] = await Promise.all([
       prisma.plan.findMany({ where: { active: true }, orderBy: { order: "asc" } }),

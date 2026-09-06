@@ -368,6 +368,17 @@ model DemoVisit {
 model SiteVisit {
   id        String   @id @default(cuid())
   path      String
+  // Dominio/URL de donde vino (header Referer) — null cuando entró directo
+  // (tipeó la URL, o el navegador no manda el header). Ver lib/traffic-source.ts
+  // para cómo se agrupa en "Google", "Instagram", "Directo", etc.
+  referrer  String?
+  // Crudo, tal cual lo manda el navegador — se parsea recién al mostrar las
+  // estadísticas (lib/user-agent.ts), así un cambio en cómo se categoriza no
+  // pierde datos ya guardados.
+  userAgent String?
+  // Cookie anónima de un año (ver proxy.ts) — permite distinguir "visitas
+  // totales" de "visitantes distintos" sin pedir ningún dato personal.
+  visitorId String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
