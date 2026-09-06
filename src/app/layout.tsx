@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { MarketingSessionProvider } from "@/components/marketing/marketing-session-provider";
 import { MarketingWhatsappWidget } from "@/components/marketing/marketing-whatsapp-widget";
+import { SalesChatWidget } from "@/components/marketing/sales-chat-widget";
 import { StoreSettingsProvider } from "@/lib/store-settings-context";
 import { getStoreSettings, getSeoSettings } from "@/lib/settings";
 import { getCurrentTenant } from "@/lib/tenant";
@@ -129,6 +130,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 message={marketingSettings.whatsappMessage}
               />
             ) : null}
+            <SalesChatWidget />
           </MarketingSessionProvider>
         </body>
       </html>
