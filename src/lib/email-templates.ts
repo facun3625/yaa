@@ -136,6 +136,13 @@ export function orderConfirmationEmail({
   // igual funciona en la vista previa dentro del navegador.
   appUrl?: string;
 }) {
+  // logoUrl sale de saveUploadedFile como ruta relativa (/uploads/...) —
+  // en el navegador se resuelve solo contra la página actual, pero un
+  // cliente de mail no tiene "página actual" y la muestra rota. Mismo
+  // problema que ya resolvíamos para el logo de Yaa del pie, acá aplicado
+  // al logo de la tienda.
+  const absoluteLogoUrl = logoUrl && appUrl && !/^https?:\/\//.test(logoUrl) ? `${appUrl}${logoUrl}` : logoUrl;
+
   const itemsHtml = items
     .map(
       (i) => `
@@ -191,7 +198,7 @@ export function orderConfirmationEmail({
         <td style="padding:24px 32px;border-bottom:1px solid ${BORDER};">
           <table role="presentation" width="100%"><tr>
             <td style="vertical-align:middle;">
-              ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(storeName)}" height="36" style="height:36px;width:auto;border-radius:8px;vertical-align:middle;margin-right:10px;">` : ""}
+              ${absoluteLogoUrl ? `<img src="${escapeHtml(absoluteLogoUrl)}" alt="${escapeHtml(storeName)}" height="36" style="height:36px;width:auto;border-radius:8px;vertical-align:middle;margin-right:10px;">` : ""}
               <span style="font-size:17px;font-weight:700;color:${INK};vertical-align:middle;">${escapeHtml(storeName)}</span>
             </td>
           </tr></table>
