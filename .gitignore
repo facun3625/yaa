@@ -42,6 +42,10 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# Base de datos de geolocalización (scripts/update-geolite2.sh) — ~70MB,
+# se descarga con la license key de MaxMind, no va en git.
+/data/GeoLite2-City.mmdb
+
 # uploads (fotos de productos, comprobantes) - solo local en dev
 /public/uploads/*
 !/public/uploads/.gitkeep

@@ -379,6 +379,10 @@ model SiteVisit {
   // Cookie anónima de un año (ver proxy.ts) — permite distinguir "visitas
   // totales" de "visitantes distintos" sin pedir ningún dato personal.
   visitorId String?
+  // Para país/ciudad (lib/ip-geo.ts, contra la base local GeoLite2-City —
+  // nunca sale de nuestro servidor). Es el único dato acá que identifica
+  // de verdad, por eso no se muestra crudo en ningún lado, solo agregado.
+  ip        String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])

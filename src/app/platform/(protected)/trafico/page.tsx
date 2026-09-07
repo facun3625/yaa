@@ -73,6 +73,8 @@ export default async function SiteTrafficPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <BreakdownCard title="Por país" items={stats.byCountry} emptyLabel="Sin datos todavía." />
+        <BreakdownCard title="Por ciudad" items={stats.byCity} emptyLabel="Sin datos todavía." />
         <BreakdownCard title="Por origen" items={stats.bySource} emptyLabel="Sin datos todavía." />
         <BreakdownCard title="Por dispositivo" items={stats.byDevice} emptyLabel="Sin datos todavía." />
         <BreakdownCard title="Por página" items={stats.byPage} emptyLabel="Sin datos todavía." />

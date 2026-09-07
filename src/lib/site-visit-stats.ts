@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { parseDevice, parseBrowser, parseOs, DEVICE_LABELS } from "@/lib/user-agent";
 import { parseTrafficSource } from "@/lib/traffic-source";
+import { lookupGeo } from "@/lib/ip-geo";
 
 export type SiteVisitStats = {
   totalVisits: number;
@@ -10,6 +11,8 @@ export type SiteVisitStats = {
   byDevice: { label: string; value: number }[];
   byBrowser: { label: string; value: number }[];
   byOs: { label: string; value: number }[];
+  byCountry: { label: string; value: number }[];
+  byCity: { label: string; value: number }[];
 };
 
 function tally(items: string[]): { label: string; value: number }[] {
@@ -19,14 +22,28 @@ function tally(items: string[]): { label: string; value: number }[] {
 }
 
 // Todo se parsea acá, no al guardar — así una mejora futura al parser de
-// user-agent/referrer aplica retroactivamente a los datos ya guardados.
+// user-agent/referrer/geo aplica retroactivamente a los datos ya guardados.
 export async function getSiteVisitStats(range: { from: Date; to: Date }): Promise<SiteVisitStats> {
   const visits = await prisma.siteVisit.findMany({
     where: { createdAt: { gte: range.from, lte: range.to } },
-    select: { path: true, referrer: true, userAgent: true, visitorId: true },
+    select: { path: true, referrer: true, userAgent: true, visitorId: true, ip: true },
   });
 
   const uniqueVisitorIds = new Set(visits.map((v) => v.visitorId).filter((v): v is string => Boolean(v)));
+
+  // Un solo lookup por IP distinta, no uno por visita — la misma persona
+  // suele volver varias veces con la misma IP.
+  const uniqueIps = [...new Set(visits.map((v) => v.ip).filter((v): v is string => Boolean(v)))];
+  const geoEntries = await Promise.all(uniqueIps.map(async (ip) => [ip, await lookupGeo(ip)] as const));
+  const geoByIp = new Map(geoEntries);
+
+  const countries: string[] = [];
+  const cities: string[] = [];
+  for (const v of visits) {
+    const geo = v.ip ? geoByIp.get(v.ip) : null;
+    if (geo?.country) countries.push(geo.country);
+    if (geo?.city) cities.push(`${geo.city}, ${geo.country ?? "?"}`);
+  }
 
   return {
     totalVisits: visits.length,
@@ -36,5 +53,7 @@ export async function getSiteVisitStats(range: { from: Date; to: Date }): Promis
     byDevice: tally(visits.map((v) => DEVICE_LABELS[parseDevice(v.userAgent)])),
     byBrowser: tally(visits.map((v) => parseBrowser(v.userAgent))),
     byOs: tally(visits.map((v) => parseOs(v.userAgent))),
+    byCountry: tally(countries),
+    byCity: tally(cities),
   };
 }
