@@ -1,9 +1,13 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
+import { clientIp, isRateLimited, recordFailure, type RateLimitRule } from "@/lib/rate-limit";
+
+const BUSCAR_PEDIDO_RULE: RateLimitRule = { limit: 15, windowMinutes: 10 };
 
 export type GuestOrderSummary = {
   id: string;
@@ -25,6 +29,12 @@ const searchSchema = z.object({
 // probando teléfonos al voleo. Solo mira pedidos de invitado (userId null):
 // una cuenta registrada ya tiene /pedidos con login.
 export async function findGuestOrders(_prev: FindGuestOrdersState, formData: FormData): Promise<FindGuestOrdersState> {
+  const ipKey = `buscar-pedido:${clientIp(await headers())}`;
+  if (await isRateLimited(ipKey, BUSCAR_PEDIDO_RULE)) {
+    return { orders: null, error: "Demasiados intentos — esperá un toque y volvé a probar." };
+  }
+  await recordFailure(ipKey);
+
   const parsed = searchSchema.safeParse({
     phone: formData.get("phone"),
     email: formData.get("email"),

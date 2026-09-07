@@ -56,15 +56,26 @@ export async function clearFailures(key: string): Promise<void> {
 /**
  * IP del cliente. Detrás de Nginx el socket siempre es 127.0.0.1, así que
  * el dato real viaja en x-forwarded-for — que es un header y por lo tanto
- * falsificable si el proxy de adelante no lo reescribe. El README documenta
- * el `proxy_set_header X-Forwarded-For $remote_addr` que hace falta. Por eso
- * el límite por IP es la segunda línea de defensa y no la principal: el
- * límite por cuenta (que no depende de headers) es el que de verdad frena
- * la fuerza bruta.
+ * falsificable si el proxy de adelante no lo reescribe.
+ *
+ * La config real en el VPS (sites-available/*.conf) usa
+ * `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` — ese
+ * directive AGREGA la IP real al final de lo que ya traía el pedido, no lo
+ * reemplaza. Por eso acá se toma el ÚLTIMO tramo (el que puso Nginx) y no
+ * el primero (que el cliente puede inventar mandando su propio header).
+ * Si algún día se suma un proxy/CDN adelante de Nginx, esto deja de
+ * alcanzar y hay que sumar uno más a la cuenta.
+ *
+ * De cualquier forma, el límite por IP es la segunda línea de defensa y no
+ * la principal: el límite por cuenta (que no depende de headers) es el
+ * que de verdad frena la fuerza bruta.
  */
 export function clientIp(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
+  if (forwarded) {
+    const hops = forwarded.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1]!;
+  }
   return headers.get("x-real-ip")?.trim() || "unknown";
 }
 

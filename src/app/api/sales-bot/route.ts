@@ -2,32 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { askSalesBot, type ChatMessage } from "@/lib/sales-bot";
+import { clientIp, isRateLimited, recordFailure, type RateLimitRule } from "@/lib/rate-limit";
 
 // Ruta pública sin sesión (el chat vive en la landing, para quien todavía
 // no tiene cuenta) — el rate limit por IP es lo único que evita que alguien
 // abuse el cupo gratis de Gemini o, el día de mañana con un plan pago,
 // genere costo mandando miles de mensajes.
-const RATE_LIMIT = 20;
-const WINDOW_MS = 10 * 60 * 1000;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = hits.get(ip);
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count += 1;
-  return true;
-}
+const SALES_BOT_RULE: RateLimitRule = { limit: 20, windowMinutes: 10 };
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!checkRateLimit(ip)) {
+  const ipKey = `sales-bot:${clientIp(req.headers)}`;
+  if (await isRateLimited(ipKey, SALES_BOT_RULE)) {
     return NextResponse.json({ error: "Demasiados mensajes seguidos — esperá un toque y volvé a intentar." }, { status: 429 });
   }
+  await recordFailure(ipKey);
 
   const body = await req.json().catch(() => null);
   const rawMessages = Array.isArray(body?.messages) ? body.messages : null;
