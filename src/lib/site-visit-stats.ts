@@ -20,10 +20,9 @@ function tally(items: string[]): { label: string; value: number }[] {
 
 // Todo se parsea acá, no al guardar — así una mejora futura al parser de
 // user-agent/referrer aplica retroactivamente a los datos ya guardados.
-export async function getSiteVisitStats(days = 30): Promise<SiteVisitStats> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+export async function getSiteVisitStats(range: { from: Date; to: Date }): Promise<SiteVisitStats> {
   const visits = await prisma.siteVisit.findMany({
-    where: { createdAt: { gte: since } },
+    where: { createdAt: { gte: range.from, lte: range.to } },
     select: { path: true, referrer: true, userAgent: true, visitorId: true },
   });
 

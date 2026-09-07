@@ -2,6 +2,8 @@ import { GlobeIcon, UsersIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSiteVisitStats } from "@/lib/site-visit-stats";
+import { resolveDateRange } from "@/lib/date-range";
+import { TrafficFilterBar } from "./traffic-filter-bar";
 
 function BreakdownCard({ title, items, emptyLabel }: { title: string; items: { label: string; value: number }[]; emptyLabel: string }) {
   const total = items.reduce((sum, i) => sum + i.value, 0);
@@ -31,15 +33,23 @@ function BreakdownCard({ title, items, emptyLabel }: { title: string; items: { l
   );
 }
 
-export default async function SiteTrafficPage() {
-  const stats = await getSiteVisitStats(30);
+export default async function SiteTrafficPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
+  const params = await searchParams;
+  const range = resolveDateRange(params);
+  const stats = await getSiteVisitStats(range);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Tráfico del sitio</h1>
-        <p className="text-sm text-muted-foreground">De dónde viene y cómo navega quien visita yaa.com.ar — últimos 30 días.</p>
+        <p className="text-sm text-muted-foreground">De dónde viene y cómo navega quien visita yaa.com.ar — {range.label.toLowerCase()}.</p>
       </div>
+
+      <TrafficFilterBar />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card>
