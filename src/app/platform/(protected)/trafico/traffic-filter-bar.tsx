@@ -32,7 +32,11 @@ export function TrafficFilterBar() {
         value={preset}
         onValueChange={(v) => updateParams({ range: String(v), from: null, to: null })}
       >
-        <SelectTrigger size="sm" className="bg-background">
+        {/* Ancho mínimo fijo, no "w-fit": el popup toma el ancho del
+            trigger, y si el valor elegido es corto (ej. "Hoy") el menú
+            queda demasiado angosto para "Rango personalizado" y ese texto
+            se corta (el popup tiene overflow-x-hidden, sin scroll). */}
+        <SelectTrigger size="sm" className="w-48 min-w-48 bg-background">
           <SelectValue placeholder="Período" />
         </SelectTrigger>
         <SelectContent container={containerRef} alignItemWithTrigger={false}>
