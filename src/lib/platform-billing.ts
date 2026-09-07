@@ -43,6 +43,8 @@ export async function getPlatformMarketingSettings() {
     whatsappEnabled: settings.marketingWhatsappEnabled,
     whatsappNumber: settings.marketingWhatsappNumber,
     whatsappMessage: settings.marketingWhatsappMessage,
+    instagramEnabled: settings.marketingInstagramEnabled,
+    instagramUsername: settings.marketingInstagramUsername,
   };
 }
 

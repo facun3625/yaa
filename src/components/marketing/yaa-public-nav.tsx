@@ -8,6 +8,8 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { YaaLoginDialog } from "@/components/marketing/yaa-login-dialog";
 import { scrollToAnchor, handleAnchorNavClick } from "@/lib/anchor-scroll";
+import { useMarketingSocial } from "@/components/marketing/marketing-social-context";
+import { InstagramIcon } from "@/components/catalog/social-icons";
 
 import {
   DropdownMenu,
@@ -23,6 +25,7 @@ export function YaaPublicNav() {
   const close = () => setOpen(false);
   const { data: session } = useSession();
   const pathname = usePathname();
+  const { instagramUrl } = useMarketingSocial();
 
   // Al llegar a "/" con un hash en la URL (nav cruzado desde otra página, o
   // recargar/retroceder), corrige el scroll — scrollToAnchor ya reintenta
@@ -60,6 +63,17 @@ export function YaaPublicNav() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          {instagramUrl && (
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram de YAA"
+              className="flex size-9 items-center justify-center rounded-full text-white transition-colors hover:text-[#ff7658]"
+            >
+              <InstagramIcon className="size-5" />
+            </a>
+          )}
           {/* <a> nativo, no <Link>: /demo es un route handler que redirige
               a otro subdominio (yaa.com.ar/demo -> demoN.yaa.com.ar/login),
               mismo criterio que "Cerrar sesión" más abajo. */}
@@ -122,6 +136,18 @@ export function YaaPublicNav() {
             <Link href="/preguntas-frecuentes" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Preguntas frecuentes</Link>
             <Link href="/#contacto" onClick={(e) => handleAnchorClick(e, "contacto")} className="rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Contacto</Link>
             <a href="/demo" onClick={close} className="rounded-lg px-3 py-3 font-semibold text-[#ff7658] transition-colors hover:bg-white/5 hover:text-[#ff5a36]">Ver demo</a>
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
+                className="flex items-center gap-2 rounded-lg px-3 py-3 font-semibold text-white transition-colors hover:bg-white/5 hover:text-[#ff7658]"
+              >
+                <InstagramIcon className="size-4" />
+                Instagram
+              </a>
+            )}
             <div className="my-2 h-px bg-white/10" />
             {session?.user ? (
               <div className="grid gap-2">

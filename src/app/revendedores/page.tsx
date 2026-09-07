@@ -12,6 +12,7 @@ import { trackSiteVisit } from "@/lib/site-visit";
 export const metadata: Metadata = {
   title: "Socios comerciales · YAA",
   description: "Recomendá YAA, ayudá a más negocios a vender online y construí un ingreso recurrente.",
+  alternates: { canonical: "/revendedores" },
 };
 
 const steps = [

@@ -3,6 +3,7 @@ import { getPlatformMarketingSettings, getSetupServiceSettings, getPlatformTeleg
 import { MarketingSettingsForm } from "./marketing-settings-form";
 import { SetupServiceSettingsForm } from "./setup-service-settings-form";
 import { PlatformTelegramSettingsForm } from "./platform-telegram-settings-form";
+import { InstagramSettingsForm } from "./instagram-settings-form";
 
 export default async function PlatformSettingsPage() {
   const [settings, setupService, telegram] = await Promise.all([
@@ -29,6 +30,9 @@ export default async function PlatformSettingsPage() {
           <TabsTrigger value="telegram" className="flex-1">
             Telegram
           </TabsTrigger>
+          <TabsTrigger value="instagram" className="flex-1">
+            Instagram
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="whatsapp">
@@ -49,6 +53,10 @@ export default async function PlatformSettingsPage() {
 
         <TabsContent value="telegram">
           <PlatformTelegramSettingsForm configured={telegram.configured} chatId={telegram.chatId} />
+        </TabsContent>
+
+        <TabsContent value="instagram">
+          <InstagramSettingsForm enabled={settings.instagramEnabled} username={settings.instagramUsername} />
         </TabsContent>
       </Tabs>
     </div>

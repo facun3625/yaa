@@ -11,15 +11,35 @@ import { trackSiteVisit } from "@/lib/site-visit";
 export const metadata: Metadata = {
   title: "Preguntas frecuentes · YAA",
   description: "Respuestas sobre tiendas YAA, pedidos, delivery, pagos, planes y puesta en marcha.",
+  alternates: { canonical: "/preguntas-frecuentes" },
 };
 
 const categories = FAQ_CATEGORIES;
+
+// FAQPage le permite a Google mostrar estas preguntas plegables directo en
+// los resultados de búsqueda (rich snippet), sin que la persona tenga que
+// entrar al sitio para verlas.
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: categories.flatMap(({ questions }) =>
+    questions.map(([question, answer]) => ({
+      "@type": "Question",
+      name: question,
+      acceptedAnswer: { "@type": "Answer", text: answer },
+    })),
+  ),
+};
 
 export default async function FrequentlyAskedQuestionsPage() {
   await trackSiteVisit("/preguntas-frecuentes");
 
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#1d1713]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <YaaPublicNav />
 
       <section className="bg-[#ff5a36] px-6 py-16 text-white md:py-24">

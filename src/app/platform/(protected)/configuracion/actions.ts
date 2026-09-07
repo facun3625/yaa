@@ -52,6 +52,35 @@ export async function saveMarketingWhatsapp(formData: FormData) {
   revalidatePath("/platform/configuracion");
 }
 
+const instagramSchema = z.object({
+  enabled: z.boolean(),
+  username: z.string().trim().min(1, "Ingresá tu usuario de Instagram").max(60),
+});
+
+export async function saveMarketingInstagram(formData: FormData) {
+  await requireSuperAdmin();
+  const parsed = instagramSchema.parse({
+    enabled: formData.get("enabled") === "true",
+    username: formData.get("username"),
+  });
+
+  await prisma.platformBillingSettings.upsert({
+    where: { id: PLATFORM_BILLING_SETTINGS_ID },
+    create: {
+      id: PLATFORM_BILLING_SETTINGS_ID,
+      marketingInstagramEnabled: parsed.enabled,
+      marketingInstagramUsername: parsed.username.replace(/^@/, ""),
+    },
+    update: {
+      marketingInstagramEnabled: parsed.enabled,
+      marketingInstagramUsername: parsed.username.replace(/^@/, ""),
+    },
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/platform/configuracion");
+}
+
 // ---------- Telegram (aviso al equipo de YAA por tienda nueva) ----------
 
 const platformTelegramSchema = z.object({

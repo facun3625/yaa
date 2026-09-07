@@ -4,13 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mail } from "lucide-react";
+import { InstagramIcon } from "@/components/catalog/social-icons";
 import { handleAnchorNavClick } from "@/lib/anchor-scroll";
+import { useMarketingSocial } from "@/components/marketing/marketing-social-context";
 
 const linkClass = "text-sm text-[#9ca3af] transition-colors hover:text-white";
 const headingClass = "text-xs font-bold uppercase tracking-[.12em] text-white/40";
 
 export function YaaPublicFooter() {
   const pathname = usePathname();
+  const { instagramUrl } = useMarketingSocial();
 
   return (
     <footer className="border-t border-white/5 bg-[#030712] text-white">
@@ -23,6 +26,12 @@ export function YaaPublicFooter() {
               <Mail className="size-4 shrink-0" />
               hola@yaa.com.ar
             </a>
+            {instagramUrl && (
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 flex items-center gap-2 ${linkClass}`}>
+                <InstagramIcon className="size-4 shrink-0" />
+                Instagram
+              </a>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">

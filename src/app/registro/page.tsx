@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { Check } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -13,6 +14,30 @@ import { trackSiteVisit } from "@/lib/site-visit";
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "admin de una tienda",
   SUPER_ADMIN: "super admin de la plataforma",
+};
+
+const TITLE = "Creá tu tienda online gratis · YAA";
+const DESCRIPTION = "Registrate y armá tu tienda online en minutos: catálogo, pedidos, delivery y pagos, sin comisión por venta. Días de prueba gratis, sin tarjeta.";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "/registro" },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "/registro",
+    siteName: "YAA",
+    locale: "es_AR",
+    type: "website",
+    images: [{ url: "/yaa_mock.png", width: 1448, height: 1086, alt: "YAA, tu tienda online" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/yaa_mock.png"],
+  },
 };
 
 export default async function RegistroPage({

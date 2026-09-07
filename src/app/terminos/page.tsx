@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { YaaPublicFooter } from "@/components/marketing/yaa-public-footer";
 import { YaaPublicNav } from "@/components/marketing/yaa-public-nav";
 
-export const metadata: Metadata = { title: "Términos de uso · YAA", description: "Condiciones generales de uso del servicio YAA." };
+export const metadata: Metadata = {
+  title: "Términos de uso · YAA",
+  description: "Condiciones generales de uso del servicio YAA.",
+  alternates: { canonical: "/terminos" },
+};
 
 const sections = [
   ["1. El servicio", "YAA es una plataforma online que permite crear una tienda, publicar productos o servicios y administrar pedidos, clientes, entregas y medios de pago. Cada comercio es responsable de su catálogo, precios, disponibilidad, atención, facturación y cumplimiento de las ventas que realiza."],

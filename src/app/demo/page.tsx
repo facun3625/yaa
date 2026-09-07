@@ -1,12 +1,40 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 
 import { DemoEmailForm } from "./demo-email-form";
+import { trackSiteVisit } from "@/lib/site-visit";
+
+const TITLE = "Probá YAA gratis · Demo en vivo";
+const DESCRIPTION = "Entrá al panel de una tienda de ejemplo, ya cargada con productos, y mirá cómo funciona YAA antes de crear la tuya.";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "/demo" },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "/demo",
+    siteName: "YAA",
+    locale: "es_AR",
+    type: "website",
+    images: [{ url: "/yaa_mock.png", width: 1448, height: 1086, alt: "YAA, tu tienda online" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/yaa_mock.png"],
+  },
+};
 
 // Entrada única para probar el producto: yaa.com.ar/demo. Antes de repartir
 // a quien entra hacia una de las copias de prueba (ver actions.ts), pedimos
 // un email — es el único dato de contacto que dejamos de alguien que solo
 // está mirando, y sirve para hacer seguimiento después.
-export default function DemoPage() {
+export default async function DemoPage() {
+  await trackSiteVisit("/demo");
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#030712] px-4 py-12 text-white">
       <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-2xl bg-[#0b1220] p-7 text-center shadow-2xl ring-1 ring-white/10">

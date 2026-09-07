@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { YaaPublicFooter } from "@/components/marketing/yaa-public-footer";
 import { YaaPublicNav } from "@/components/marketing/yaa-public-nav";
 
-export const metadata: Metadata = { title: "Privacidad · YAA", description: "Política de privacidad del servicio YAA." };
+export const metadata: Metadata = {
+  title: "Privacidad · YAA",
+  description: "Política de privacidad del servicio YAA.",
+  alternates: { canonical: "/privacidad" },
+};
 
 const sections = [
   ["Qué información tratamos", "Podemos tratar datos de registro y contacto, información del negocio, configuración de la tienda, actividad de la cuenta, datos técnicos y la información que se carga para gestionar pedidos y clientes."],

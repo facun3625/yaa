@@ -121,6 +121,10 @@ model PlatformBillingSettings {
   marketingWhatsappEnabled    Boolean  @default(false)
   marketingWhatsappNumber     String?
   marketingWhatsappMessage    String?
+  // Instagram de YAA en el header/footer del sitio de marketing — ver
+  // MarketingSocialProvider, YaaPublicNav y YaaPublicFooter.
+  marketingInstagramEnabled   Boolean  @default(false)
+  marketingInstagramUsername  String?
   // Sección "armamos tu tienda por vos" de la landing — precio y pasos
   // editables sin tocar código, independientes de los planes de suscripción.
   // Arranca en false a propósito: recién se prende desde /platform/configuracion

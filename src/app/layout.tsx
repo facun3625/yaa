@@ -13,6 +13,8 @@ import { WhatsAppWidget } from "@/components/whatsapp-widget";
 import { FloatingCartButton } from "@/components/floating-cart-button";
 import { getPlatformMarketingSettings } from "@/lib/platform-billing";
 import { isDemoSubdomain } from "@/lib/demo";
+import { MarketingSocialProvider } from "@/components/marketing/marketing-social-context";
+import { toInstagramLink } from "@/lib/social-links";
 
 async function isPlatformRoute() {
   const pathname = (await headers()).get("x-pathname") ?? "";
@@ -119,19 +121,25 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   if (!tenant) {
     const marketingSettings = await getPlatformMarketingSettings();
+    const instagramUrl =
+      marketingSettings.instagramEnabled && marketingSettings.instagramUsername
+        ? toInstagramLink(marketingSettings.instagramUsername)
+        : null;
     return (
       <html lang="es" className={htmlClassName}>
         <body className="min-h-full">
           <MarketingSessionProvider>
-            <SalesChatProvider>
-              {children}
-              {marketingSettings.whatsappEnabled && marketingSettings.whatsappNumber ? (
-                <MarketingWhatsappWidget
-                  number={marketingSettings.whatsappNumber}
-                  message={marketingSettings.whatsappMessage}
-                />
-              ) : null}
-            </SalesChatProvider>
+            <MarketingSocialProvider instagramUrl={instagramUrl}>
+              <SalesChatProvider>
+                {children}
+                {marketingSettings.whatsappEnabled && marketingSettings.whatsappNumber ? (
+                  <MarketingWhatsappWidget
+                    number={marketingSettings.whatsappNumber}
+                    message={marketingSettings.whatsappMessage}
+                  />
+                ) : null}
+              </SalesChatProvider>
+            </MarketingSocialProvider>
           </MarketingSessionProvider>
         </body>
       </html>
