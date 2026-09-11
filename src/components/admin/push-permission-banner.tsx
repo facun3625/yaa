@@ -22,6 +22,21 @@ function urlBase64ToUint8Array(base64: string) {
   return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
 }
 
+// navigator.serviceWorker.ready y pushManager.subscribe() no tienen ningún
+// timeout nativo — si algo queda mal (SW que nunca activa, servicio de
+// push del sistema sin responder) la promesa no se resuelve ni rechaza
+// nunca, y el botón queda pegado en "Activando..." para siempre sin decir
+// por qué. Esto convierte ese cuelgue silencioso en un error visible.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} no respondió a tiempo`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 export function PushPermissionBanner() {
   // isStandalone viene de useSyncExternalStore (ver pwa-provider.tsx): en el
   // primer render del cliente vale false igual que en el server, así que
@@ -48,15 +63,19 @@ export function PushPermissionBanner() {
         toast.error("No se activaron las notificaciones — hay que aceptar el permiso.");
         return;
       }
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await withTimeout(navigator.serviceWorker.ready, 8000, "El service worker");
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) throw new Error("Falta configurar NEXT_PUBLIC_VAPID_PUBLIC_KEY en el servidor");
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      const subscription = await withTimeout(
+        registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        }),
+        8000,
+        "La suscripción push",
+      );
       const json = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-      await subscribeToPush(json);
+      await withTimeout(subscribeToPush(json), 8000, "El guardado en el servidor");
       localStorage.setItem(SUBSCRIBED_KEY, "1");
       setSubscribed(true);
       toast.success("Notificaciones activadas");
