@@ -1,20 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPlatformBillingSettings } from "@/lib/platform-billing";
 import { prisma } from "@/lib/prisma";
 import { purgeOldRateLimitAttempts } from "@/lib/rate-limit";
-
-// Mismo criterio que la firma de los webhooks de Mercado Pago (ver
-// lib/mercadopago.ts): comparar secretos con === filtra, por el tiempo que
-// tarda, cuántos caracteres se acertaron.
-function secretMatches(received: string | null, expected: string) {
-  if (!received) return false;
-  const a = Buffer.from(received, "utf8");
-  const b = Buffer.from(`Bearer ${expected}`, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+import { secretMatches } from "@/lib/cron-auth";
 
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

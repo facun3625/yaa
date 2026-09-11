@@ -100,6 +100,27 @@ propósito). Usá un valor distinto al de local:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
+### Backup diario de la base (obligatorio)
+
+`/api/cron/backup` corre `pg_dump` contra la base y guarda el resultado en
+`data/backups/`, conservando solo los últimos 5. **Nadie lo llama solo** — si
+no se programa, no hay backups automáticos (solo los que se disparen a mano
+desde `/platform/backups`).
+
+Requiere `postgresql-client-16` instalado en el host (mismo major version que
+el contenedor `postgres:16-alpine`):
+
+```bash
+apt install postgresql-client-16
+```
+
+```cron
+0 4 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://yaa.com.ar/api/cron/backup
+```
+
+Usa el mismo `CRON_SECRET` que `/api/cron/billing`. Corrida a un horario
+distinto (4 AM vs 3 AM) para no competir por disco/CPU al mismo minuto.
+
 ### Webhooks de Mercado Pago
 
 Apuntar en el panel de Mercado Pago a:

@@ -49,3 +49,7 @@ next-env.d.ts
 # uploads (fotos de productos, comprobantes) - solo local en dev
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# backups de la base (ver src/lib/backup.ts) - solo local/VPS, nunca en git
+/data/backups/*
+!/data/backups/.gitkeep
