@@ -18,6 +18,8 @@ import { orderConfirmationEmail } from "@/lib/email-templates";
 import { sendMail } from "@/lib/mailer";
 import { toWhatsAppLink, toInstagramLink } from "@/lib/social-links";
 import { FULFILLMENT_TYPE_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/order-status";
+import { sendPushToTenantAdmins } from "@/lib/push";
+import { formatPrice } from "@/lib/format";
 
 const deliveryDateFormatter = new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "2-digit", month: "long" });
 function capitalize(s: string) {
@@ -468,6 +470,18 @@ export async function placeOrder(formData: FormData) {
     } catch (err) {
       console.error("No se pudo enviar el mail de confirmación de pedido", err);
     }
+  }
+
+  // Push al panel admin instalado como PWA — independiente del mail de
+  // arriba, nunca bloquea el checkout si falla.
+  try {
+    await sendPushToTenantAdmins(tenant.id, {
+      title: "Nuevo pedido",
+      body: `${session?.user?.name ?? parsed.guestName ?? "Un cliente"} — ${formatPrice(Number(order.total))}`,
+      url: `/admin/pedidos/${order.id}`,
+    });
+  } catch (err) {
+    console.error("No se pudo enviar la notificación push del pedido", err);
   }
 
   if (parsed.paymentMethod !== "MERCADOPAGO") {

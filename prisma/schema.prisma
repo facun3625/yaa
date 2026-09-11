@@ -488,12 +488,13 @@ model User {
   referredTenants     Tenant[]             @relation("TenantReferredBy")
   resellerCommissions ResellerCommission[] @relation("ResellerCommissions")
 
-  accounts         Account[]
-  sessions         Session[]
-  orders           Order[]
-  pointsLedger     PointsLedger[]
-  couponRedemption CouponRedemption[]
-  whatsappLogs     WhatsappLog[]
+  accounts          Account[]
+  sessions          Session[]
+  orders            Order[]
+  pointsLedger      PointsLedger[]
+  couponRedemption  CouponRedemption[]
+  whatsappLogs      WhatsappLog[]
+  pushSubscriptions PushSubscription[]
 
   @@unique([tenantId, email])
 }
@@ -519,6 +520,23 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, provider, providerAccountId])
+}
+
+// Suscripción a notificaciones push del navegador (panel admin instalado
+// como PWA). tenantId desnormalizado para poder avisar a todos los admins
+// de una tienda sin pasar por User en cada consulta.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Session {

@@ -1,0 +1,56 @@
+import path from "node:path";
+import { NextResponse } from "next/server";
+import sharp from "sharp";
+import { requireTenantAdmin } from "@/lib/require-admin";
+import { getStoreSettings } from "@/lib/settings";
+
+const BG = { r: 10, g: 10, b: 10, alpha: 1 };
+const FALLBACK_ICON = path.join(process.cwd(), "public", "yaa-icon.svg");
+
+// logoUrl siempre es un path local /uploads/... (todo pasa por
+// saveUploadedFile en lib/storage.ts) — si algún día se permite pegar una
+// URL externa, esto rompe en silencio y cae al ícono de YAA por defecto.
+export async function GET(_request: Request, { params }: { params: Promise<{ size: string }> }) {
+  const { tenant } = await requireTenantAdmin();
+  const { size: rawSize } = await params;
+
+  const isMaskable = rawSize.endsWith("-maskable");
+  const px = parseInt(isMaskable ? rawSize.replace("-maskable", "") : rawSize, 10);
+  if (!Number.isFinite(px) || px <= 0 || px > 1024) {
+    return new NextResponse("Tamaño inválido", { status: 400 });
+  }
+
+  const { logoUrl } = await getStoreSettings(tenant.id);
+  const source = logoUrl ? path.join(process.cwd(), "public", logoUrl) : FALLBACK_ICON;
+
+  let png: Buffer;
+  try {
+    png = await renderIcon(source, px, isMaskable);
+  } catch {
+    png = await renderIcon(FALLBACK_ICON, px, isMaskable);
+  }
+
+  return new NextResponse(new Uint8Array(png), {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "private, max-age=3600",
+    },
+  });
+}
+
+async function renderIcon(source: string, px: number, maskable: boolean): Promise<Buffer> {
+  if (!maskable) {
+    return sharp(source).resize(px, px, { fit: "contain", background: BG }).png().toBuffer();
+  }
+
+  // Zona segura ~60%: el logo va centrado y más chico sobre un lienzo
+  // sólido, para que los launchers de Android que recortan el ícono
+  // (círculo, squircle, gota) no le corten el contenido a la mitad.
+  const inner = Math.round(px * 0.6);
+  const logo = await sharp(source).resize(inner, inner, { fit: "contain", background: BG }).png().toBuffer();
+
+  return sharp({ create: { width: px, height: px, channels: 4, background: BG } })
+    .composite([{ input: logo, gravity: "center" }])
+    .png()
+    .toBuffer();
+}

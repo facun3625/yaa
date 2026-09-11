@@ -22,9 +22,11 @@ import {
   MessageSquareTextIcon,
   ArrowUpCircleIcon,
   ExternalLinkIcon,
+  DownloadIcon,
 } from "lucide-react";
 
 import { useStoreSettings } from "@/lib/store-settings-context";
+import { useAdminPwa } from "@/components/admin/pwa-provider";
 import { cn } from "@/lib/utils";
 import type { PlanFeatures } from "@/lib/require-admin";
 
@@ -55,6 +57,7 @@ const baseSections = [
 
 export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 0, features, planInfo }: { onNavigate?: () => void; newInquiryCount?: number; newOrderCount?: number; features?: PlanFeatures; planInfo?: { name: string; canUpgrade: boolean } | null }) {
   const { storeName, logoUrl } = useStoreSettings();
+  const { canInstall, promptInstall } = useAdminPwa();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel");
@@ -190,6 +193,19 @@ export function AdminSidebar({ onNavigate, newInquiryCount = 0, newOrderCount = 
           <ExternalLinkIcon className="size-4 shrink-0" />
           Panel de YAA
         </a>
+        {canInstall && (
+          <button
+            type="button"
+            onClick={() => {
+              promptInstall();
+              onNavigate?.();
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <DownloadIcon className="size-4 shrink-0" />
+            Instalar app
+          </button>
+        )}
       </div>
     </div>
   );

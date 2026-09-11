@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { redirect } from "next/navigation";
 
@@ -6,10 +7,18 @@ import { AdminTopbar, type AdminNotification } from "@/components/admin/admin-to
 import { AdminThemeRoot } from "@/components/admin/admin-theme-root";
 import { ConfirmProvider } from "@/components/admin/confirm-provider";
 import { PromptProvider } from "@/components/admin/prompt-provider";
+import { PwaProvider } from "@/components/admin/pwa-provider";
+import { PushPermissionBanner } from "@/components/admin/push-permission-banner";
 import { prisma } from "@/lib/prisma";
 import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import { getStockAlerts } from "@/lib/stock-alerts";
 import { isDemoSubdomain, DEMO_LAST_ACTIVE_KEY } from "@/lib/demo";
+
+export const metadata: Metadata = {
+  manifest: "/admin/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent" },
+  icons: { apple: "/admin/icon/180" },
+};
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -80,31 +89,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <AdminThemeRoot fontFamily={montserrat.style.fontFamily} variant="store" defaultTheme="dark">
-      <ConfirmProvider>
-        <PromptProvider>
-          <aside className="hidden bg-sidebar h-full overflow-y-auto w-64 shrink-0 border-r border-sidebar-border print:hidden lg:flex lg:flex-col">
-            <AdminSidebar newInquiryCount={newInquiryCount} newOrderCount={pendingOrderCount} features={features} planInfo={planInfo} />
-          </aside>
-          <div className="flex min-w-0 min-h-0 flex-1 flex-col h-full overflow-hidden">
-            <AdminTopbar
-              storeOpen={tenant.storeOpen}
-              stockAlerts={stockAlerts}
-              newInquiryCount={newInquiryCount}
-              newOrderCount={pendingOrderCount}
-              notificationCount={newInquiryCount + pendingOrderCount}
-              notifications={notifications}
-              billingStatus={tenant.billingStatus}
-              trialDaysLeft={trialDaysLeft}
-              features={features}
-              planInfo={planInfo}
-              salesModeConfigured={Boolean(salesModeConfigured)}
-              impersonating={Boolean(session.user.impersonatedBy)}
-              platformUrl={`${ROOT_DOMAIN.startsWith("localhost") ? "http" : "https"}://${ROOT_DOMAIN}/platform`}
-            />
-            <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 lg:px-8 print:p-0">{children}</main>
-          </div>
-        </PromptProvider>
-      </ConfirmProvider>
+      <PwaProvider>
+        <ConfirmProvider>
+          <PromptProvider>
+            <aside className="hidden bg-sidebar h-full overflow-y-auto w-64 shrink-0 border-r border-sidebar-border print:hidden lg:flex lg:flex-col">
+              <AdminSidebar newInquiryCount={newInquiryCount} newOrderCount={pendingOrderCount} features={features} planInfo={planInfo} />
+            </aside>
+            <div className="flex min-w-0 min-h-0 flex-1 flex-col h-full overflow-hidden">
+              <AdminTopbar
+                storeOpen={tenant.storeOpen}
+                stockAlerts={stockAlerts}
+                newInquiryCount={newInquiryCount}
+                newOrderCount={pendingOrderCount}
+                notificationCount={newInquiryCount + pendingOrderCount}
+                notifications={notifications}
+                billingStatus={tenant.billingStatus}
+                trialDaysLeft={trialDaysLeft}
+                features={features}
+                planInfo={planInfo}
+                salesModeConfigured={Boolean(salesModeConfigured)}
+                impersonating={Boolean(session.user.impersonatedBy)}
+                platformUrl={`${ROOT_DOMAIN.startsWith("localhost") ? "http" : "https"}://${ROOT_DOMAIN}/platform`}
+              />
+              <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 lg:px-8 print:p-0">{children}</main>
+            </div>
+            <PushPermissionBanner />
+          </PromptProvider>
+        </ConfirmProvider>
+      </PwaProvider>
     </AdminThemeRoot>
   );
 }
