@@ -21,14 +21,11 @@ function ensureVapidConfigured(): boolean {
   return true;
 }
 
-// Avisa a todos los admins de una tienda que instalaron el panel como PWA.
-// Nunca tira: cada llamada ya va envuelta en su propio try/catch en el
-// caller (ver checkout/actions.ts), un push que falla no puede romper nada.
-export async function sendPushToTenantAdmins(tenantId: string, payload: PushPayload): Promise<void> {
-  if (!ensureVapidConfigured()) return;
-
-  const subscriptions = await prisma.pushSubscription.findMany({ where: { tenantId } });
-  if (subscriptions.length === 0) return;
+async function sendToSubscriptions(
+  subscriptions: { endpoint: string; p256dh: string; auth: string }[],
+  payload: PushPayload,
+): Promise<number> {
+  if (!ensureVapidConfigured() || subscriptions.length === 0) return 0;
 
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
@@ -50,4 +47,23 @@ export async function sendPushToTenantAdmins(tenantId: string, payload: PushPayl
   if (expiredEndpoints.length > 0) {
     await prisma.pushSubscription.deleteMany({ where: { endpoint: { in: expiredEndpoints } } });
   }
+
+  return results.filter((r) => r.status === "fulfilled").length;
+}
+
+// Avisa a todos los admins de una tienda que instalaron el panel como PWA.
+// Nunca tira: cada llamada ya va envuelta en su propio try/catch en el
+// caller (ver checkout/actions.ts), un push que falla no puede romper nada.
+export async function sendPushToTenantAdmins(tenantId: string, payload: PushPayload): Promise<void> {
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { tenantId } });
+  await sendToSubscriptions(subscriptions, payload);
+}
+
+// Para el botón "Enviar prueba" en Configuración — a diferencia de la
+// anterior, esta sí devuelve cuántas suscripciones recibieron el mensaje,
+// para poder avisar "todavía no activaste las notificaciones en este
+// dispositivo" si da 0, en vez de fallar en silencio.
+export async function sendTestPushToUser(userId: string, payload: PushPayload): Promise<number> {
+  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
+  return sendToSubscriptions(subscriptions, payload);
 }

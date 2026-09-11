@@ -1,7 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { getCurrentTenant } from "@/lib/tenant";
 import { getStoreSettings } from "@/lib/settings";
 
 const BG = { r: 10, g: 10, b: 10, alpha: 1 };
@@ -10,8 +10,15 @@ const FALLBACK_ICON = path.join(process.cwd(), "public", "yaa-icon.svg");
 // logoUrl siempre es un path local /uploads/... (todo pasa por
 // saveUploadedFile en lib/storage.ts) — si algún día se permite pegar una
 // URL externa, esto rompe en silencio y cae al ícono de YAA por defecto.
+//
+// A propósito SIN requireTenantAdmin(): src/proxy.ts deja pasar esta ruta
+// sin sesión (ver isPublicAdminAsset ahí) porque iOS Safari busca el
+// apple-touch-icon con un mecanismo propio que no manda la cookie — el
+// nombre y el logo de la tienda ya son públicos en la tienda, no hace
+// falta exigir login para esto.
 export async function GET(_request: Request, { params }: { params: Promise<{ size: string }> }) {
-  const { tenant } = await requireTenantAdmin();
+  const tenant = await getCurrentTenant();
+  if (!tenant) return new NextResponse("Tienda no encontrada", { status: 404 });
   const { size: rawSize } = await params;
 
   const isMaskable = rawSize.endsWith("-maskable");

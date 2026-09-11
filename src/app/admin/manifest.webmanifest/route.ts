@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { getCurrentTenant } from "@/lib/tenant";
 import { getStoreSettings } from "@/lib/settings";
 
 // No es el archivo especial app/manifest.ts de Next (ese solo funciona en
 // la raíz de app/) — es un Route Handler común que arma el mismo JSON a
-// mano, servido en /admin/manifest.webmanifest. Pasa por el gate de auth
-// de /admin en src/proxy.ts, pero eso no rompe nada: el <link rel="manifest">
-// solo se renderiza dentro del layout admin, que ya exige sesión.
+// mano, servido en /admin/manifest.webmanifest. A propósito SIN
+// requireTenantAdmin(): src/proxy.ts deja pasar esta ruta sin sesión (ver
+// isPublicAdminAsset ahí) porque iOS Safari busca el ícono con un
+// mecanismo propio que no manda la cookie — exigir login acá hacía que
+// cayera al ícono genérico con la inicial del nombre en vez del logo real.
 export async function GET() {
-  const { tenant } = await requireTenantAdmin();
+  const tenant = await getCurrentTenant();
+  if (!tenant) return new NextResponse("Tienda no encontrada", { status: 404 });
   const { storeName } = await getStoreSettings(tenant.id);
 
   const manifest = {

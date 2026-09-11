@@ -51,7 +51,14 @@ export default auth((req) => {
   const visitorId = isRoot ? (existingVisitorId ?? randomUUID()) : null;
   if (visitorId) requestHeaders.set("x-visitor-id", visitorId);
 
-  const isAdminRoute = pathname.startsWith("/admin");
+  // El manifest y los íconos de la PWA del admin tienen que poder pedirse
+  // sin sesión: iOS Safari busca el apple-touch-icon con un mecanismo propio
+  // que no manda la cookie — si esto quedara detrás del login, recibe un
+  // redirect en vez de la imagen y cae al ícono genérico con la inicial del
+  // nombre. No expone nada sensible (nombre y logo ya son públicos en la
+  // tienda), así que no hace falta el gate de ADMIN acá.
+  const isPublicAdminAsset = pathname === "/admin/manifest.webmanifest" || pathname.startsWith("/admin/icon/");
+  const isAdminRoute = pathname.startsWith("/admin") && !isPublicAdminAsset;
   const isPlatformRoute = pathname.startsWith("/platform") && pathname !== "/platform/login";
 
   let response: NextResponse;

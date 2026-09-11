@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireTenantAdmin } from "@/lib/require-admin";
+import { sendTestPushToUser } from "@/lib/push";
 
 export async function setStoreOpen(open: boolean) {
   const { tenant } = await requireTenantAdmin();
@@ -25,4 +26,16 @@ export async function subscribeToPush(subscription: { endpoint: string; keys: { 
       auth: subscription.keys.auth,
     },
   });
+}
+
+export async function sendTestPush() {
+  const { session } = await requireTenantAdmin();
+  const sent = await sendTestPushToUser(session.user.id, {
+    title: "Notificación de prueba",
+    body: "Si ves esto, las notificaciones están funcionando 🎉",
+    url: "/admin",
+  });
+  if (sent === 0) {
+    throw new Error("Todavía no activaste las notificaciones en este dispositivo — instalá la app y activalas primero.");
+  }
 }

@@ -12,11 +12,12 @@ import { SmtpSettingsForm } from "./smtp-settings-form";
 import { EmailEditor } from "./email-editor";
 import { EmailLogTable } from "./email-log-table";
 import { TelegramSettingsForm } from "./telegram-settings-form";
+import { PushSettingsForm } from "./push-settings-form";
 import { DocumentacionTab } from "./documentacion-tab";
 import { CustomDomainForm } from "./custom-domain-form";
 import { SeoSettingsForm } from "./seo-settings-form";
 
-const VALID_TABS = new Set(["general", "about", "popup", "smtp", "mail", "telegram", "docs", "dominio", "seo"]);
+const VALID_TABS = new Set(["general", "about", "popup", "smtp", "mail", "telegram", "push", "docs", "dominio", "seo"]);
 
 export default async function ConfiguracionPage({
   searchParams,
@@ -66,6 +67,9 @@ export default async function ConfiguracionPage({
               Telegram
             </TabsTrigger>
           )}
+          <TabsTrigger value="push" className="flex-1">
+            Notificaciones
+          </TabsTrigger>
           <TabsTrigger value="docs" className="flex-1">
             Documentación
           </TabsTrigger>
@@ -124,6 +128,10 @@ export default async function ConfiguracionPage({
             <TelegramSettingsForm key={JSON.stringify(telegramSettings)} settings={telegramSettings} />
           </TabsContent>
         )}
+
+        <TabsContent value="push">
+          <PushSettingsForm />
+        </TabsContent>
 
         <TabsContent value="docs">
           <DocumentacionTab />

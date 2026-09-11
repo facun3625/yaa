@@ -264,7 +264,7 @@ export function CheckoutForm({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 pb-20 lg:flex-row lg:items-start lg:pb-6">
       <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:w-80 lg:shrink-0">
         <h1 className="text-xl font-semibold">Confirmar pedido</h1>
         <div className="flex flex-col gap-2 rounded-2xl border p-4">
@@ -434,6 +434,15 @@ export function CheckoutForm({
 
           {method === "TRANSFER" && (
             <div className="flex flex-col gap-3 rounded-xl border bg-muted/50 p-4 text-sm">
+              <div className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
+                <span className="font-medium">Transferí</span>
+                <span className="text-base font-semibold">{formatPrice(total)}</span>
+              </div>
+              {appliedDeliveryFee > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Incluye {formatPrice(appliedDeliveryFee)} de envío — el total ya lo tiene en cuenta.
+                </p>
+              )}
               <p className="font-medium">Datos para transferir</p>
               <div className="flex flex-col gap-1 text-muted-foreground">
                 {transferConfig?.bankName && <span>Banco: {transferConfig.bankName}</span>}
@@ -572,6 +581,17 @@ export function CheckoutForm({
           </div>
         </StepCard>
       </form>
+
+      {/* En mobile el resumen de arriba no queda fijo (se apila, no es
+          sticky) — esta barra lo compensa: el total siempre visible,
+          incluso con el teclado abierto completando datos de contacto. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t bg-background px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+        <div className="text-sm">
+          <span className="text-muted-foreground">Total</span>
+          {appliedDeliveryFee > 0 && <span className="ml-1.5 text-xs text-muted-foreground">(incluye envío)</span>}
+        </div>
+        <span className="text-lg font-semibold">{formatPrice(total)}</span>
+      </div>
     </main>
   );
 }

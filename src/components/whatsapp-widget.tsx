@@ -9,8 +9,10 @@ export function WhatsAppWidget() {
   const pathname = usePathname();
   const { whatsapp } = useStoreSettings();
 
-  // Ocultar en rutas del panel de administración o si no hay número configurado
-  if (!whatsapp || pathname.startsWith("/admin")) {
+  // Ocultar en el panel admin, si no hay número configurado, o en el
+  // checkout — ahí compite por el mismo rincón con la barra fija del total
+  // (ver checkout-form.tsx), y la prioridad ahí es que el total no se pierda.
+  if (!whatsapp || pathname.startsWith("/admin") || pathname.startsWith("/checkout")) {
     return null;
   }
 
