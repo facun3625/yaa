@@ -13,8 +13,12 @@ export function PushSettingsForm() {
   function sendTest() {
     startTransition(async () => {
       try {
-        await sendTestPush();
-        toast.success("Notificación enviada — revisá tu celular");
+        const { sent } = await sendTestPush();
+        if (sent) {
+          toast.success("Notificación enviada — revisá tu celular");
+        } else {
+          toast.error("Todavía no activaste las notificaciones en este dispositivo — instalá la app y activalas primero.");
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "No se pudo enviar la notificación de prueba");
       }

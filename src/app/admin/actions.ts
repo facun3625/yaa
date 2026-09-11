@@ -28,14 +28,17 @@ export async function subscribeToPush(subscription: { endpoint: string; keys: { 
   });
 }
 
-export async function sendTestPush() {
+// Devuelve el resultado en vez de tirar error: un throw en un Server Action
+// llega al cliente con el mensaje reemplazado por uno genérico en
+// producción (medida de seguridad de Next para no filtrar detalles) — y
+// "todavía no activaste las notificaciones" es un caso esperado, no una
+// falla real, así que necesita llegar con su texto intacto.
+export async function sendTestPush(): Promise<{ sent: boolean }> {
   const { session } = await requireTenantAdmin();
   const sent = await sendTestPushToUser(session.user.id, {
     title: "Notificación de prueba",
     body: "Si ves esto, las notificaciones están funcionando 🎉",
     url: "/admin",
   });
-  if (sent === 0) {
-    throw new Error("Todavía no activaste las notificaciones en este dispositivo — instalá la app y activalas primero.");
-  }
+  return { sent: sent > 0 };
 }
