@@ -5,7 +5,7 @@ import { getCurrentTenant } from "@/lib/tenant";
 import { getStoreSettings } from "@/lib/settings";
 
 const BG = { r: 10, g: 10, b: 10, alpha: 1 };
-const FALLBACK_ICON = path.join(process.cwd(), "public", "yaa-icon.svg");
+const FALLBACK_ICON = path.join(process.cwd(), "public", "yaa-icon-02.png");
 
 // logoUrl siempre es un path local /uploads/... (todo pasa por
 // saveUploadedFile en lib/storage.ts) — si algún día se permite pegar una

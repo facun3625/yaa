@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
   if (await isPlatformRoute()) {
     return {
       title: "YAA · Plataforma",
-      icons: { icon: "/favicon.png" },
+      icons: { icon: "/yaa-icon-02.png" },
     };
   }
 
@@ -46,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "YAA · Vendé más. Complicate menos.",
       description:
         "Pedidos online para gastronomía y negocios de cercanía, sin comisiones por venta.",
-      icons: { icon: "/favicon.png" },
+      icons: { icon: "/yaa-icon-02.png" },
       metadataBase: new URL("https://yaa.com.ar"),
       alternates: { canonical: "/" },
       openGraph: {
