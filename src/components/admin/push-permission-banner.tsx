@@ -2,10 +2,18 @@
 
 import { useState } from "react";
 import { BellIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useAdminPwa } from "@/components/admin/pwa-provider";
 import { subscribeToPush } from "@/app/admin/actions";
 
 const DISMISSED_KEY = "yaa-admin-push-dismissed";
+// Distinto de DISMISSED_KEY a propósito: Notification.permission puede
+// quedar en "granted" aunque el paso de subscribe()/subscribeToPush()
+// falle después — si el banner se guiara por el permiso del navegador, en
+// ese caso desaparecería para siempre sin haber guardado nada, sin forma
+// de reintentar. Este flag solo se marca cuando la suscripción de verdad
+// se guardó en la base.
+const SUBSCRIBED_KEY = "yaa-admin-push-subscribed";
 
 function urlBase64ToUint8Array(base64: string) {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -21,6 +29,7 @@ export function PushPermissionBanner() {
   // en el server) hasta después de que React ya hidrató sin desajustes.
   const { isStandalone } = useAdminPwa();
   const [dismissed, setDismissed] = useState(() => typeof window !== "undefined" && Boolean(localStorage.getItem(DISMISSED_KEY)));
+  const [subscribed, setSubscribed] = useState(() => typeof window !== "undefined" && Boolean(localStorage.getItem(SUBSCRIBED_KEY)));
   const [pending, setPending] = useState(false);
 
   function dismiss() {
@@ -36,27 +45,31 @@ export function PushPermissionBanner() {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        dismiss();
+        toast.error("No se activaron las notificaciones — hay que aceptar el permiso.");
         return;
       }
       const registration = await navigator.serviceWorker.ready;
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!publicKey) throw new Error("Falta NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+      if (!publicKey) throw new Error("Falta configurar NEXT_PUBLIC_VAPID_PUBLIC_KEY en el servidor");
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       const json = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
       await subscribeToPush(json);
-      dismiss();
+      localStorage.setItem(SUBSCRIBED_KEY, "1");
+      setSubscribed(true);
+      toast.success("Notificaciones activadas");
     } catch (error) {
       console.error("No se pudo activar las notificaciones", error);
+      toast.error(error instanceof Error ? error.message : "No se pudo activar las notificaciones");
+    } finally {
       setPending(false);
     }
   }
 
-  if (!isStandalone || dismissed) return null;
-  if (typeof Notification === "undefined" || Notification.permission !== "default") return null;
+  if (!isStandalone || dismissed || subscribed) return null;
+  if (typeof Notification === "undefined" || Notification.permission === "denied") return null;
 
   return (
     <div className="fixed inset-x-3 bottom-3 z-40 flex items-center gap-3 rounded-xl border bg-popover p-3 text-sm shadow-lg sm:inset-x-auto sm:right-4 sm:max-w-sm">
