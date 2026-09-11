@@ -27,6 +27,26 @@ function urlBase64ToUint8Array(base64: string) {
 // push del sistema sin responder) la promesa no se resuelve ni rechaza
 // nunca, y el botón queda pegado en "Activando..." para siempre sin decir
 // por qué. Esto convierte ese cuelgue silencioso en un error visible.
+// A propósito NO usa navigator.serviceWorker.ready: eso espera a que la
+// página esté *controlada* por el worker, cosa que recién ocurre en la
+// navegación siguiente a la que lo registró — en la primera visita se
+// quedaba esperando para siempre. El registro en cambio ya expone
+// pushManager apenas el worker está activo, sin necesidad de control.
+// register() es idempotente: si ya existe, devuelve el mismo registro.
+async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
+  const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/admin" });
+  if (registration.active) return registration;
+
+  const worker = registration.installing ?? registration.waiting;
+  if (!worker) throw new Error("El service worker no se pudo iniciar");
+  await new Promise<void>((resolve) => {
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") resolve();
+    });
+  });
+  return registration;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} no respondió a tiempo`)), ms);
@@ -63,7 +83,7 @@ export function PushPermissionBanner() {
         toast.error("No se activaron las notificaciones — hay que aceptar el permiso.");
         return;
       }
-      const registration = await withTimeout(navigator.serviceWorker.ready, 8000, "El service worker");
+      const registration = await withTimeout(getActiveRegistration(), 8000, "El service worker");
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) throw new Error("Falta configurar NEXT_PUBLIC_VAPID_PUBLIC_KEY en el servidor");
       const subscription = await withTimeout(

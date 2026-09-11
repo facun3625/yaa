@@ -18,7 +18,9 @@ export async function GET() {
     name: `${storeName} — Panel`,
     short_name: storeName,
     start_url: "/admin",
-    scope: "/admin/",
+    // Sin barra final a propósito: el scope se compara como prefijo literal,
+    // así que "/admin/" dejaría fuera al propio start_url "/admin".
+    scope: "/admin",
     display: "standalone",
     background_color: "#0a0a0a",
     theme_color: "#0a0a0a",

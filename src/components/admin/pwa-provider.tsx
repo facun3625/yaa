@@ -52,8 +52,25 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const isStandalone = useSyncExternalStore(subscribeStandalone, getStandaloneSnapshot, getServerSnapshotFalse);
 
   useEffect(() => {
-    navigator.serviceWorker?.register("/admin/sw.js", { scope: "/admin/" }).catch((error) => {
+    // El scope se compara como prefijo de string literal: "/admin/" (con
+    // barra) NO cubre la página "/admin" (el dashboard, justo donde aparece
+    // el banner de notificaciones), así que ahí la página nunca quedaba
+    // controlada y navigator.serviceWorker.ready esperaba para siempre.
+    // Con scope "/admin" entran tanto "/admin" como "/admin/...", pero para
+    // eso el script tiene que vivir en la raíz: un SW solo puede tomar un
+    // scope dentro de su propia carpeta (/admin/sw.js estaba limitado a
+    // "/admin/" y registrarlo más ancho tira SecurityError).
+    navigator.serviceWorker?.register("/sw.js", { scope: "/admin" }).catch((error) => {
       console.error("No se pudo registrar el service worker del panel", error);
+    });
+
+    // Limpia el registro viejo en "/admin/" de quienes ya habían entrado
+    // antes de este cambio: si queda, convive con el nuevo y controla las
+    // subpáginas por ser el scope más específico.
+    navigator.serviceWorker?.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        if (registration.scope.endsWith("/admin/")) registration.unregister();
+      }
     });
 
     function onBeforeInstallPrompt(event: Event) {
