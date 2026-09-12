@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { UserIcon } from "lucide-react";
+import { UserIcon, DownloadIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useLoginDialog } from "@/lib/login-dialog-context";
+import { useStorePwa } from "@/components/store/store-pwa-provider";
 
 function initials(name?: string | null) {
   if (!name) return "?";
@@ -29,6 +30,7 @@ function initials(name?: string | null) {
 export function AccountMenu({ overlay = false }: { overlay?: boolean }) {
   const { data: session, status } = useSession();
   const { openLogin } = useLoginDialog();
+  const { canInstall, promptInstall } = useStorePwa();
 
   if (status === "loading") return null;
 
@@ -88,6 +90,12 @@ export function AccountMenu({ overlay = false }: { overlay?: boolean }) {
           <span className="size-1 shrink-0 rounded-full bg-current" />
           Mi perfil
         </DropdownMenuItem>
+        {canInstall && (
+          <DropdownMenuItem onClick={promptInstall} className="gap-2 py-1.5 text-sm">
+            <DownloadIcon className="size-3.5 shrink-0" />
+            Instalar app
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { PwaIosInstallDialog } from "@/components/pwa-ios-install-dialog";
 import { useStoreSettings } from "@/lib/store-settings-context";
+import { isIOSNonSafariUA } from "@/lib/is-ios-non-safari";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => void;
@@ -31,6 +32,9 @@ function subscribeNever() {
 function getIsIOSSnapshot() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
+function getIsIOSNonSafariSnapshot() {
+  return isIOSNonSafariUA(navigator.userAgent);
+}
 function getServerSnapshotFalse() {
   return false;
 }
@@ -49,6 +53,7 @@ export function StorePwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosDialogOpen, setIosDialogOpen] = useState(false);
   const isIOS = useSyncExternalStore(subscribeNever, getIsIOSSnapshot, getServerSnapshotFalse);
+  const isIOSNonSafari = useSyncExternalStore(subscribeNever, getIsIOSNonSafariSnapshot, getServerSnapshotFalse);
   const isStandalone = useSyncExternalStore(subscribeStandalone, getStandaloneSnapshot, getServerSnapshotFalse);
 
   useEffect(() => {
@@ -90,6 +95,7 @@ export function StorePwaProvider({ children }: { children: React.ReactNode }) {
         onOpenChange={setIosDialogOpen}
         title={`Instalar ${storeName}`}
         description="Agregá la app a tu pantalla de inicio en dos pasos."
+        needsSafari={isIOSNonSafari}
       />
     </StorePwaContext.Provider>
   );
