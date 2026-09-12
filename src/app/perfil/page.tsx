@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { StoreHero } from "@/components/catalog/store-hero";
 import { StoreFooter } from "@/components/catalog/store-footer";
 import { ProfileForm } from "./profile-form";
+import { PushToggle } from "./push-toggle";
 import { CustomerSidebar } from "@/components/customer-sidebar";
 
 export default async function PerfilPage() {
@@ -30,6 +31,7 @@ export default async function PerfilPage() {
                 image: user.image,
               }}
             />
+            <PushToggle />
           </div>
         </div>
       </main>

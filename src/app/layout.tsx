@@ -15,6 +15,8 @@ import { getPlatformMarketingSettings } from "@/lib/platform-billing";
 import { isDemoSubdomain } from "@/lib/demo";
 import { MarketingSocialProvider } from "@/components/marketing/marketing-social-context";
 import { toInstagramLink } from "@/lib/social-links";
+import { StorePwaProvider } from "@/components/store/store-pwa-provider";
+import { StorePushBanner } from "@/components/store/store-push-banner";
 
 async function isPlatformRoute() {
   const pathname = (await headers()).get("x-pathname") ?? "";
@@ -77,6 +79,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     icons: faviconUrl ? { icon: faviconUrl } : undefined,
+    // El layout de /admin pisa esto con su propio manifest (metadata de
+    // hijo gana sobre la de padre), así que las páginas del panel siguen
+    // usando /admin/manifest.webmanifest sin tocar nada acá.
+    manifest: "/manifest.webmanifest",
     // El resto de la metadata (OG, Twitter card) solo se completa si hay
     // imagen propia cargada — sin eso no hay nada mejor que mostrar que el
     // título y la descripción de arriba, así que no vale la pena armar el
@@ -166,7 +172,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <StoreSettingsProvider value={{ ...storeSettings, tenantId: tenant.id, isDemo: isDemoSubdomain(tenant.subdomain) }}>
           <Providers>
-            {children}
+            {pathname.startsWith("/admin") ? (
+              children
+            ) : (
+              <StorePwaProvider>
+                <StorePushBanner />
+                {children}
+              </StorePwaProvider>
+            )}
             <WhatsAppWidget />
             <FloatingCartButton />
           </Providers>

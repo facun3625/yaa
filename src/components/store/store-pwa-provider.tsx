@@ -2,30 +2,29 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { PwaIosInstallDialog } from "@/components/pwa-ios-install-dialog";
+import { useStoreSettings } from "@/lib/store-settings-context";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => void;
 };
 
-type AdminPwaContextValue = {
+type StorePwaContextValue = {
   isStandalone: boolean;
   isIOS: boolean;
   canInstall: boolean;
   promptInstall: () => void;
 };
 
-const AdminPwaContext = createContext<AdminPwaContextValue>({
+const StorePwaContext = createContext<StorePwaContextValue>({
   isStandalone: false,
   isIOS: false,
   canInstall: false,
   promptInstall: () => {},
 });
 
-// Lecturas de APIs que solo existen en el browser (navigator, matchMedia).
-// useSyncExternalStore, no useEffect+setState: evita el "set-state-in-effect"
-// del lint y, más importante, evita el parpadeo de hidratación — React
-// fuerza el primer render del cliente a usar getServerSnapshot (false) y
-// recién después actualiza, igual que el server.
+// Mismo truco que components/admin/pwa-provider.tsx: useSyncExternalStore en
+// vez de useEffect+setState evita el parpadeo de hidratación (el primer
+// render de cliente tiene que coincidir con el del server).
 function subscribeNever() {
   return () => {};
 }
@@ -45,32 +44,20 @@ function getStandaloneSnapshot() {
   return window.matchMedia("(display-mode: standalone)").matches;
 }
 
-export function PwaProvider({ children }: { children: React.ReactNode }) {
+export function StorePwaProvider({ children }: { children: React.ReactNode }) {
+  const { storeName } = useStoreSettings();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosDialogOpen, setIosDialogOpen] = useState(false);
   const isIOS = useSyncExternalStore(subscribeNever, getIsIOSSnapshot, getServerSnapshotFalse);
   const isStandalone = useSyncExternalStore(subscribeStandalone, getStandaloneSnapshot, getServerSnapshotFalse);
 
   useEffect(() => {
-    // El scope se compara como prefijo de string literal: "/admin/" (con
-    // barra) NO cubre la página "/admin" (el dashboard, justo donde aparece
-    // el banner de notificaciones), así que ahí la página nunca quedaba
-    // controlada y navigator.serviceWorker.ready esperaba para siempre.
-    // Con scope "/admin" entran tanto "/admin" como "/admin/...", pero para
-    // eso el script tiene que vivir en la raíz: un SW solo puede tomar un
-    // scope dentro de su propia carpeta (/admin/sw.js estaba limitado a
-    // "/admin/" y registrarlo más ancho tira SecurityError).
-    navigator.serviceWorker?.register("/sw.js", { scope: "/admin" }).catch((error) => {
-      console.error("No se pudo registrar el service worker del panel", error);
-    });
-
-    // Limpia el registro viejo en "/admin/" de quienes ya habían entrado
-    // antes de este cambio: si queda, convive con el nuevo y controla las
-    // subpáginas por ser el scope más específico.
-    navigator.serviceWorker?.getRegistrations().then((registrations) => {
-      for (const registration of registrations) {
-        if (registration.scope.endsWith("/admin/")) registration.unregister();
-      }
+    // Scope "/" a propósito: cubre todo el storefront (/, /carrito,
+    // /mi-cuenta, /pedidos, /perfil, etc.), no una sola página. El SW de
+    // /admin registra el mismo archivo con scope "/admin", que gana sobre
+    // este en las páginas del panel por ser el scope más específico.
+    navigator.serviceWorker?.register("/sw.js", { scope: "/" }).catch((error) => {
+      console.error("No se pudo registrar el service worker de la tienda", error);
     });
 
     function onBeforeInstallPrompt(event: Event) {
@@ -96,13 +83,18 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const canInstall = !isStandalone && (deferredPrompt !== null || isIOS);
 
   return (
-    <AdminPwaContext.Provider value={{ isStandalone, isIOS, canInstall, promptInstall }}>
+    <StorePwaContext.Provider value={{ isStandalone, isIOS, canInstall, promptInstall }}>
       {children}
-      <PwaIosInstallDialog open={iosDialogOpen} onOpenChange={setIosDialogOpen} />
-    </AdminPwaContext.Provider>
+      <PwaIosInstallDialog
+        open={iosDialogOpen}
+        onOpenChange={setIosDialogOpen}
+        title={`Instalar ${storeName}`}
+        description="Agregá la app a tu pantalla de inicio en dos pasos."
+      />
+    </StorePwaContext.Provider>
   );
 }
 
-export function useAdminPwa() {
-  return useContext(AdminPwaContext);
+export function useStorePwa() {
+  return useContext(StorePwaContext);
 }

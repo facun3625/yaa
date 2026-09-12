@@ -54,9 +54,24 @@ async function sendToSubscriptions(
 // Avisa a todos los admins de una tienda que instalaron el panel como PWA.
 // Nunca tira: cada llamada ya va envuelta en su propio try/catch en el
 // caller (ver checkout/actions.ts), un push que falla no puede romper nada.
+// Filtra por rol ADMIN a propósito: desde que los clientes también pueden
+// suscribirse (ver sendPushToTenantCustomers), sin este filtro un "pedido
+// nuevo" les llegaría también a ellos.
 export async function sendPushToTenantAdmins(tenantId: string, payload: PushPayload): Promise<void> {
-  const subscriptions = await prisma.pushSubscription.findMany({ where: { tenantId } });
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { tenantId, user: { role: "ADMIN" } },
+  });
   await sendToSubscriptions(subscriptions, payload);
+}
+
+// Para la campaña que el admin dispara a mano desde /admin/notificaciones —
+// a diferencia de sendPushToTenantAdmins, esta sí devuelve cuántos clientes
+// recibieron el mensaje, para mostrarlo en el panel.
+export async function sendPushToTenantCustomers(tenantId: string, payload: PushPayload): Promise<number> {
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { tenantId, user: { role: "CUSTOMER" } },
+  });
+  return sendToSubscriptions(subscriptions, payload);
 }
 
 // Para el botón "Enviar prueba" en Configuración — a diferencia de la

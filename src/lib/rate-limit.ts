@@ -24,6 +24,11 @@ export const LOGIN_IP_RULE: RateLimitRule = { limit: 40, windowMinutes: 15 };
 export const EMAIL_RULE: RateLimitRule = { limit: 5, windowMinutes: 60 };
 export const REGISTER_RULE: RateLimitRule = { limit: 10, windowMinutes: 60 };
 
+// Campañas de push a clientes desde /admin/notificaciones: tope conservador
+// para que un admin no pueda inundar a sus clientes de mensajes a fuerza de
+// clicks (por error o de mala fe), sin ser una traba para el uso normal.
+export const PUSH_BROADCAST_RULE: RateLimitRule = { limit: 5, windowMinutes: 60 };
+
 function windowStart(rule: RateLimitRule) {
   return new Date(Date.now() - rule.windowMinutes * 60 * 1000);
 }

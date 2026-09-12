@@ -4,15 +4,8 @@ import { getCurrentTenant } from "@/lib/tenant";
 import { getStoreSettings } from "@/lib/settings";
 import { renderIcon, FALLBACK_ICON } from "@/lib/tenant-icon";
 
-// logoUrl siempre es un path local /uploads/... (todo pasa por
-// saveUploadedFile en lib/storage.ts) — si algún día se permite pegar una
-// URL externa, esto rompe en silencio y cae al ícono de YAA por defecto.
-//
-// A propósito SIN requireTenantAdmin(): src/proxy.ts deja pasar esta ruta
-// sin sesión (ver isPublicAdminAsset ahí) porque iOS Safari busca el
-// apple-touch-icon con un mecanismo propio que no manda la cookie — el
-// nombre y el logo de la tienda ya son públicos en la tienda, no hace
-// falta exigir login para esto.
+// Ícono de la PWA del storefront (mismo patrón que admin/icon/[size]/route.ts,
+// ver ese archivo para el porqué de no exigir sesión acá).
 export async function GET(_request: Request, { params }: { params: Promise<{ size: string }> }) {
   const tenant = await getCurrentTenant();
   if (!tenant) return new NextResponse("Tienda no encontrada", { status: 404 });

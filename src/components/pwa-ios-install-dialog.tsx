@@ -5,19 +5,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 // iOS no permite disparar el instalador por código (todo navegador ahí
 // corre sobre WebKit) — es el único camino real, hay que explicarlo.
+// Compartido entre el panel admin y el storefront de cada tienda: cada uno
+// pasa su propio title/description.
 export function PwaIosInstallDialog({
   open,
   onOpenChange,
+  title = "Instalar el panel",
+  description = "Agregalo a tu pantalla de inicio en dos pasos.",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  title?: string;
+  description?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Instalar el panel</DialogTitle>
-          <DialogDescription>Agregalo a tu pantalla de inicio en dos pasos.</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <ol className="grid gap-3 text-sm">
           <li className="flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2.5">
