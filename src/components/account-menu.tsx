@@ -34,18 +34,34 @@ export function AccountMenu({ overlay = false }: { overlay?: boolean }) {
 
   if (status === "loading") return null;
 
+  const iconButtonClassName = cn(overlay && "border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white");
+
   if (status !== "authenticated") {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label="Ingresar"
-        className={cn(overlay && "border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white")}
-        onClick={openLogin}
-      >
-        <UserIcon />
-      </Button>
+      <div className="flex items-center gap-2">
+        {canInstall && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Instalar app"
+            className={iconButtonClassName}
+            onClick={promptInstall}
+          >
+            <DownloadIcon />
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Ingresar"
+          className={iconButtonClassName}
+          onClick={openLogin}
+        >
+          <UserIcon />
+        </Button>
+      </div>
     );
   }
 
