@@ -32,6 +32,7 @@ export default async function PlansPage() {
               maxProducts: p.maxProducts,
               maxOrdersPerMonth: p.maxOrdersPerMonth,
               allowCustomDomain: p.allowCustomDomain,
+              allowPushNotifications: p.allowPushNotifications,
               allowServices: p.allowServices,
               allowLoyalty: p.allowLoyalty,
               allowStats: p.allowStats,

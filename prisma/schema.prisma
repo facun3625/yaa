@@ -61,6 +61,10 @@ model Plan {
   // en este plan — se puede prender/apagar en cualquier momento sin tocar
   // código, desde /platform/planes.
   allowCustomDomain Boolean  @default(false)
+  // Habilita /admin/notificaciones (campañas push a clientes) — igual que
+  // allowCustomDomain, arranca en false: es un upsell nuevo, no algo que ya
+  // tenían todos los planes.
+  allowPushNotifications Boolean @default(false)
   // Funciones que ya tenían todos los planes existentes antes de este
   // toggle — por eso arrancan en `true` (a diferencia de allowCustomDomain,
   // que es un upsell y arranca en false) y el super admin las apaga por

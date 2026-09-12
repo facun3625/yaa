@@ -21,6 +21,7 @@ const FEATURE_TOGGLES = [
 export function NewPlanForm() {
   const [pending, startTransition] = useTransition();
   const [allowCustomDomain, setAllowCustomDomain] = useState(false);
+  const [allowPushNotifications, setAllowPushNotifications] = useState(false);
   const [features, setFeatures] = useState({ allowServices: true, allowLoyalty: true, allowStats: true, allowTelegram: true });
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -74,6 +75,11 @@ export function NewPlanForm() {
         <Switch checked={allowCustomDomain} onCheckedChange={setAllowCustomDomain} />
         <input type="hidden" name="allowCustomDomain" value={String(allowCustomDomain)} />
         <span className="font-medium">Permite dominio propio</span>
+      </label>
+      <label className="flex items-center gap-2.5 text-sm">
+        <Switch checked={allowPushNotifications} onCheckedChange={setAllowPushNotifications} />
+        <input type="hidden" name="allowPushNotifications" value={String(allowPushNotifications)} />
+        <span className="font-medium">Notificaciones push</span>
       </label>
       <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
         {FEATURE_TOGGLES.map((toggle) => (

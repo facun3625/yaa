@@ -52,7 +52,7 @@ const baseSections = [
   { href: "/admin/cupones", label: "Cupones", icon: TicketIcon, feature: "allowLoyalty" as const },
   { href: "/admin/puntos", label: "Puntos", icon: SparklesIcon, feature: "allowLoyalty" as const },
   { href: "/admin/estadisticas", label: "Estadísticas", icon: BarChart3Icon, feature: "allowStats" as const },
-  { href: "/admin/notificaciones", label: "Notificaciones", icon: BellIcon },
+  { href: "/admin/notificaciones", label: "Notificaciones", icon: BellIcon, feature: "allowPushNotifications" as const },
   { href: "/admin/usuarios", label: "Usuarios", icon: UsersIcon },
   { href: "/admin/configuracion", label: "Configuración", icon: SettingsIcon },
 ];

@@ -19,13 +19,21 @@ export type PlanFeatures = {
   allowStats: boolean;
   allowTelegram: boolean;
   allowCustomDomain: boolean;
+  allowPushNotifications: boolean;
 };
 
 export async function requireTenantAdminWithPlan() {
   const { session, tenant } = await requireTenantAdmin();
   const plan = await prisma.plan.findUnique({
     where: { id: tenant.planId ?? "" },
-    select: { allowServices: true, allowLoyalty: true, allowStats: true, allowTelegram: true, allowCustomDomain: true },
+    select: {
+      allowServices: true,
+      allowLoyalty: true,
+      allowStats: true,
+      allowTelegram: true,
+      allowCustomDomain: true,
+      allowPushNotifications: true,
+    },
   });
   const features: PlanFeatures = {
     allowServices: plan?.allowServices ?? false,
@@ -33,6 +41,7 @@ export async function requireTenantAdminWithPlan() {
     allowStats: plan?.allowStats ?? false,
     allowTelegram: plan?.allowTelegram ?? false,
     allowCustomDomain: plan?.allowCustomDomain ?? false,
+    allowPushNotifications: plan?.allowPushNotifications ?? false,
   };
   return { session, tenant, features };
 }

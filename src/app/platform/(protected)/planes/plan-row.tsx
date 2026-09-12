@@ -24,6 +24,7 @@ export type PlanRowData = {
   maxProducts: number | null;
   maxOrdersPerMonth: number | null;
   allowCustomDomain: boolean;
+  allowPushNotifications: boolean;
   allowServices: boolean;
   allowLoyalty: boolean;
   allowStats: boolean;
@@ -49,6 +50,7 @@ export function PlanRow({ plan, isFirst, isLast }: { plan: PlanRowData; isFirst:
   const [featuredPending, startFeaturedTransition] = useTransition();
   const [movePending, startMoveTransition] = useTransition();
   const [allowCustomDomain, setAllowCustomDomain] = useState(plan.allowCustomDomain);
+  const [allowPushNotifications, setAllowPushNotifications] = useState(plan.allowPushNotifications);
   const [features, setFeatures] = useState({
     allowServices: plan.allowServices,
     allowLoyalty: plan.allowLoyalty,
@@ -151,6 +153,16 @@ export function PlanRow({ plan, isFirst, isLast }: { plan: PlanRowData; isFirst:
             </span>
           </div>
         </label>
+        <label className="flex items-center gap-2.5 text-sm">
+          <Switch checked={allowPushNotifications} onCheckedChange={setAllowPushNotifications} />
+          <input type="hidden" name="allowPushNotifications" value={String(allowPushNotifications)} />
+          <div className="flex flex-col">
+            <span className="font-medium">Notificaciones push</span>
+            <span className="text-xs text-muted-foreground">
+              Habilita /admin/notificaciones para mandar campañas push a los clientes de este plan.
+            </span>
+          </div>
+        </label>
         <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
           {FEATURE_TOGGLES.map((toggle) => (
             <label key={toggle.name} className="flex items-center gap-2.5 text-sm">
@@ -185,6 +197,7 @@ export function PlanRow({ plan, isFirst, isLast }: { plan: PlanRowData; isFirst:
           {!plan.active && <Badge variant="secondary">Inactivo</Badge>}
           {plan.featured && <Badge className="gap-1"><StarIcon className="size-3 fill-current" />Más elegido</Badge>}
           {plan.allowCustomDomain && <Badge variant="outline">Dominio propio</Badge>}
+          {plan.allowPushNotifications && <Badge variant="outline">Push</Badge>}
           <Badge variant="outline">{plan.tenantCount} {plan.tenantCount === 1 ? "tienda" : "tiendas"}</Badge>
         </div>
         {plan.description && <p className="whitespace-pre-line text-sm text-muted-foreground">{plan.description}</p>}

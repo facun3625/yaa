@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { requireTenantAdmin } from "@/lib/require-admin";
+import { requireTenantAdminWithPlan } from "@/lib/require-admin";
 import { sendPushToTenantCustomers } from "@/lib/push";
 import { isRateLimited, recordFailure, PUSH_BROADCAST_RULE } from "@/lib/rate-limit";
 
@@ -16,7 +16,8 @@ const broadcastSchema = z.object({
 // una Server Action llega al cliente con el mensaje genérico en prod, y acá
 // no es una falla real sino algo que el admin necesita ver tal cual.
 export async function sendCustomerBroadcast(formData: FormData): Promise<{ sent: number }> {
-  const { tenant } = await requireTenantAdmin();
+  const { tenant, features } = await requireTenantAdminWithPlan();
+  if (!features.allowPushNotifications) throw new Error("Tu plan no incluye notificaciones push");
   const parsed = broadcastSchema.parse({
     title: formData.get("title"),
     body: formData.get("body"),
